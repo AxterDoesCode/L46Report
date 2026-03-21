@@ -1,0 +1,43 @@
+\documentclass[11pt]{article}
+\usepackage{parskip,times, hyperref, cite, url, graphicx, float}
+\usepackage[margin=1.5in]{geometry}
+
+\begin{document}
+
+\vspace{-2em}
+\centerline{\large \emph{L46 Project}}
+\vspace{2em}
+\centerline{\Large \emph{Exploring Quantisation In FPGA-Accelerated Binarized Neural Networks}}
+\vspace{2em}
+\centerline{\large Alex Chau (\emph{ac2822}), Churchill College}
+\section{Introduction}
+Talk about quantisation as a method to speed up neural network accel, week 7 comp arch presentation was quite useful for this.
+\section{System Setup}
+To evaluate neural network acceleration on FPGA hardware, the FINN framework was deployed on a Diligent Arty-Z7-20 development board.
+FINN is an open-source framework developed by Xilinx/AMD that enables deployment of quantized neural networkks (QNNs) on FPGA platforms through automated hardware generation and compilation.
+\subsection{Hardware Platform}
+The target platform used in this project is the Arty-Z7-20 development board, this board includes an Artix-7 FPGA as the programmable logic (PL) and an ARM Cortex-A9 processor in the form of a Zynq-7000 SOC as the programmable system (PL).
+\subsection{Software Environment}
+\begin{itemize}
+    \item{PYNQ - A pre-built PYNQ (Linux for Zynq SOCs which interfaces with PL using Python) image was flashed onto a microSD card and inserted onto the board.} 
+    \begin{itemize}
+        \item{There are a small number of pre-built images which AMD maintains, the Arty-Z7-20 isn't one of these boards. 
+            Luckily, one of the supported boards (Pynq-Z1), happens to have the exact same specs and (almost the same) pinouts as the Arty-Z7-20, we use the PYNQ v3.0.1 image in this work}
+    \end{itemize}
+    \item{FINN - A compiler }
+    \item{Xilinx Design Suite 2022.2}
+\end{itemize}
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1\linewidth]{Images/artyBoard.jpg}
+    \caption{Image of the Arty-Z7-20}
+    \label{fig:devBoard}
+\end{figure}
+\subsection{}
+\subsection{}
+\section{Experiment 1: Impact of quantisation on neural network on FPGA}
+\section{Experiment 2: Reimplementing the Celerity SOC Specialization Tier}
+\section{Experiment 3: }
+\bibliography{library}{}
+\bibliographystyle{plainurl}
+\end{document}
