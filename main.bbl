@@ -1,0 +1,9 @@
+\begin{thebibliography}{1}
+
+\bibitem{umurogluFINNFrameworkFast2017}
+Yaman Umuroglu, Nicholas~J. Fraser, Giulio Gambardella, Michaela Blott, Philip Leong, Magnus Jahre, and Kees Vissers.
+\newblock {{FINN}}: {{A Framework}} for {{Fast}}, {{Scalable Binarized Neural Network Inference}}.
+\newblock In {\em Proceedings of the 2017 {{ACM}}/{{SIGDA International Symposium}} on {{Field-Programmable Gate Arrays}}}, pages 65--74, February 2017.
+\newblock \href {https://arxiv.org/abs/1612.07119} {\path{arXiv:1612.07119}}, \href {https://doi.org/10.1145/3020078.3021744} {\path{doi:10.1145/3020078.3021744}}.
+
+\end{thebibliography}

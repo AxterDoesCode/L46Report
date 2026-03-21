@@ -24,7 +24,7 @@ The target platform used in this project is the Arty-Z7-20 development board, th
         \item{There are a small number of pre-built images which AMD maintains, the Arty-Z7-20 isn't one of these boards. 
             Luckily, one of the supported boards (Pynq-Z1), happens to have the exact same specs and (almost the same) pinouts as the Arty-Z7-20, we use the PYNQ v3.0.1 image in this work}
     \end{itemize}
-    \item{FINN - A compiler }
+\item{FINN - A compiler which maps Quantized Neural Networks (QNNs) trained in Brevitas to dataflow-style FPGA architectures \cite{umurogluFINNFrameworkFast2017}.}
     \item{Xilinx Design Suite 2022.2}
 \end{itemize}
 \begin{figure}[H]
@@ -35,9 +35,10 @@ The target platform used in this project is the Arty-Z7-20 development board, th
 \end{figure}
 \subsection{}
 \subsection{}
-\section{Experiment 1: Impact of quantisation on neural network on FPGA}
-\section{Experiment 2: Reimplementing the Celerity SOC Specialization Tier}
-\section{Experiment 3: }
+\section{Experiment 1: Impact of quantisation on neural network FPGA performance}
+% \section{Experiment 2: Reimplementing the Celerity SOC Specialization Tier}
+\section{Experiment 2: Investigating parallelism in FPGA QNN performance}
+\newpage
 \bibliography{library}{}
 \bibliographystyle{plainurl}
 \end{document}
