@@ -8,6 +8,7 @@ Reallocated glb_str_end (elt_size=8) to 20 items from 10.
 Reallocated singl_function (elt_size=8) to 100 items from 50.
 Reallocated singl_function (elt_size=8) to 100 items from 50.
 Database file #1: library.bib
+Warning--I didn't find a database entry for ""
 You've used 1 entry,
             2943 wiz_defined-function locations,
             642 strings with 5499 characters,
@@ -49,3 +50,4 @@ warning$ -- 0
 while$ -- 5
 width$ -- 2
 write$ -- 16
+(There was 1 warning)
