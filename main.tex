@@ -280,6 +280,7 @@ IN_BIT_WIDTH: 8
 \end{verbatim}
 Inside the FINN install directory we enter the FINN docker environment using:
 \begin{verbatim}
+cd finn
 ./run-docker.sh
 \end{verbatim}
 Then we train a binarized neural network with the following command:
@@ -298,6 +299,10 @@ Now with a trained model, we can export the model to QONNX by executing:
 BREVITAS_JIT=0 python train.py --evaluate --network CNV_1W1A --resume ./experiments/path/to/checkpoint.tar --export_qonnx --gpus 0 --batch_size 512
 \end{verbatim}
 \subsection{Preparing a trained Brevitas network for hardware synthesis}
+We open a Jupyter notebook instance inside the FINN directory with:
+\begin{verbatim}
+./run-docker.sh notebook
+\end{verbatim}
 With the QONNX model at hand we can view the model graph using Netron:
 \begin{minted}{python}
 import netron
