@@ -84,7 +84,7 @@ Then install the required libraries:
 \begin{verbatim}
 sudo apt install libtinfo5 libncurses5-dev libncurses5
 \end{verbatim}
-Now we can go to the \href{https://www.xilinx.com/support/download/index.html/content/xilinx/en/downloadNav/vivado-design-tools/archive.html}{Xilinx Download Page} and download the unified installer for version 2022.2.
+Now we can go to the \href{https://www.xilinx.com/support/download/index.html/content/xilinx/en/downloadNav/vivado-design-tools/archive.html}{Xilinx Download Page} to download the unified installer for version 2022.2.
 \subsubsection{FINN}
 The FINN compiler requires a Docker install to run without root permissions:
 \begin{verbatim}
@@ -162,7 +162,7 @@ Update the packages list from the repository:
 \begin{verbatim}
 sudo apt-get update
 \end{verbatim}
-Finally install the container toolkit packages:
+Install the container toolkit packages:
 \begin{verbatim}
 export NVIDIA_CONTAINER_TOOLKIT_VERSION=1.19.0-1
   sudo apt-get install -y \
@@ -171,7 +171,19 @@ export NVIDIA_CONTAINER_TOOLKIT_VERSION=1.19.0-1
       libnvidia-container-tools=${NVIDIA_CONTAINER_TOOLKIT_VERSION} \
       libnvidia-container1=${NVIDIA_CONTAINER_TOOLKIT_VERSION}
 \end{verbatim}
+Configure the Docker container runtime for rootless mode:
+\begin{verbatim}
+nvidia-ctk runtime configure --runtime=docker --config=$HOME/.config/docker/daemon.json
+systemctl --user restart docker
+sudo nvidia-ctk config --set nvidia-container-cli.no-cgroups --in-place
+\end{verbatim}
 % AlexNote: Want to show that the GPU is detected in the console
+AlexNote TODO: Want to show that the GPU is detected in the console
+AlexNote TODO: Want to show that the GPU is detected in the console
+AlexNote TODO: Want to show that the GPU is detected in the console
+AlexNote TODO: Want to show that the GPU is detected in the console
+AlexNote TODO: Want to show that the GPU is detected in the console
+AlexNote TODO: Want to show that the GPU is detected in the console
 \subsubsection{PYNQ}
 We need to install a PYNQ image to the Zynq-7000 SoC, we use the PYNQ 3.0.1 image prebuilt for the Pynq-Z1 which can be obtained from \url{https://www.pynq.io/boards.html}.
 We burn the image to a microSD card using \verb+caligula+ (which can be installed with \verb+cargo install caligula+):
