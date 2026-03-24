@@ -1,6 +1,6 @@
 \documentclass[11pt]{article}
 \usepackage{parskip,times, hyperref, cite, url, graphicx, float, fancyvrb, minted}
-\usepackage[margin=1.5in]{geometry}
+\usepackage[margin=1.0in]{geometry}
 \hypersetup{
     colorlinks=true,
     linkcolor=blue,
@@ -52,7 +52,7 @@ The target platform used in this project is the Arty-Z7-20 development board, th
 \end{itemize}
 \begin{figure}[H]
     \centering
-    \includegraphics[width=1\linewidth]{Images/artyBoard.jpg}
+    \includegraphics[width=0.8\linewidth]{Images/artyBoard.png}
     \caption{Image of the Arty-Z7-20}
     \label{fig:devBoard}
 \end{figure}
@@ -181,14 +181,14 @@ The Arty-Z7-20 needs to have a couple jumpers set to allow booting from the SD c
 First we set the JP4/Boot jumper to the SD position by placing the jumper over the top two pins of JP4 as shown in \ref{fig:setupBoard1}.
 \begin{figure}[H]
     \centering
-    \includegraphics[width=1\linewidth]{Images/SetupBoard1.jpeg}
+    \includegraphics[width=0.8\linewidth]{Images/SetupBoard1.png}
     \caption{Image of the Arty-Z7-20 JP4 Jumper}
     \label{fig:setupBoard1}
 \end{figure}
 Then to power the Arty-Z7-20 from a micro USB cable, set the JP5/Power jumper to the USB position by placing the jumper over the two left pins as shown in \ref{fig:setupBoard2}.
 \begin{figure}[H]
     \centering
-    \includegraphics[width=1\linewidth]{Images/SetupBoard2.jpeg}
+    \includegraphics[width=0.8\linewidth]{Images/SetupBoard2.png}
     \caption{Image of the Arty-Z7-20 JP5 Jumper}
     \label{fig:setupBoard2}
 \end{figure}
@@ -209,7 +209,7 @@ Which outputs something like:
 \end{verbatim}
 This \verb+enxd0c0bf48c3bb+ is the ethernet interface that the development board is connected to.
 
-We can add an ssh key to the board, replacing PATH\_TO\_YOUR\_PUBKEY with a public key created by \verb+ssh-keygen+
+We add a ssh key to the board, replacing PATH\_TO\_YOUR\_PUBKEY with a public key created by \verb+ssh-keygen+
 The default user on Pynq images is \verb+xilinx+ with the root password also being \verb+xilinx+.
 \begin{verbatim}
 ssh-copy-id -i PATH_TO_YOUR_PUBKEY xilinx@192.168.2.247
@@ -218,14 +218,14 @@ The Zynq-7000 needs internet access, as it connects directly to the Ubuntu pc we
 Locate the wired network tab in Ubuntu settings:
 \begin{figure}[H]
     \centering
-    \includegraphics[width=1\linewidth]{Images/SetupNetwork1.jpeg}
+    \includegraphics[width=1\linewidth]{Images/SetupNetwork1.png}
     \caption{Ubuntu wired network tab}
     \label{fig:setupNetwork1}
 \end{figure}
 Clicking the cog, we access the IPv4 tab where we set the IPv4 method to \verb+Shared to other computers+
 \begin{figure}[H]
     \centering
-    \includegraphics[width=1\linewidth]{Images/SetupNetwork2.jpeg}
+    \includegraphics[width=1\linewidth]{Images/SetupNetwork2.png}
     \caption{Ethernet interface IPv4 forwarding}
     \label{fig:setupNetwork2}
 \end{figure}
@@ -239,11 +239,25 @@ ping google.com
 \end{verbatim}
 \begin{figure}[H]
     \centering
-    \includegraphics[width=1\linewidth]{Images/confirmNetwork.jpeg}
+    \includegraphics[width=1\linewidth]{Images/confirmNetwork.png}
     \caption{Terminal output from network test}
     \label{fig:confirmNetwork}
 \end{figure}
 \subsection{Training a BNN using Brevitas}
+Training a Binarized Neural Network (BNN) using the Brevitas library follows a very similar workflow to training a conventional Convolutional Neural Network (CNN) in PyTorch. The overall structure of defining a model, specifying a loss function, and performing optimisation through backpropagation remains unchanged. 
+
+The key difference lies in the use of quantised layers provided by Brevitas. Instead of standard PyTorch layers, such as \texttt{Conv2d} or \texttt{Linear}, Brevitas introduces quantised counterparts (e.g. \texttt{QuantConv2d}, \texttt{QuantLinear}, and \texttt{QuantIdentity}) that simulate reduced numerical precision during training. 
+These layers allow both weights and activations to be constrained to a fixed bit-width, enabling the network to approximate the behaviour of low-precision hardware implementations.
+
+In addition, quantisation-aware training requires careful handling of value ranges and scaling factors. For example, inputs are typically normalised to a fixed range (e.g. $[-1, 1]$), and intermediate activations are passed through explicit quantisation layers. 
+Batch normalisation is essential after each layer to stabilise training, as quantized networks are generally more sensitive to changes in data distribution.
+
+The model architecture consists of a sequence of quantised convolutional layers for feature extraction, followed by fully connected layers for classification. 
+The full implementation of the model is shown below.
+\inputminted[breaklines]{Python}{./Code/model.py}
+The train script is split into two parts: \texttt{trainer.py} which exposes a trainer class, and \texttt{train.py} which parses in arguments and is called to actually train a model.
+\inputminted[breaklines]{Python}{./Code/trainer.py}
+\inputminted[breaklines]{Python}{./Code/train.py}
 \subsection{Preparing a trained Brevitas network for hardware synthesis}
 \subsection{Evaluating the BNN compared to running on a GPU // Something like this}
 \section{Experiment 2: Impact of quantisation on neural network FPGA performance}
