@@ -15,6 +15,7 @@ from torch import nn
 import torch.optim as optim
 from torch.optim.lr_scheduler import MultiStepLR
 from torch.utils.data import DataLoader
+from torch import hub
 import torchvision
 from torchvision import transforms
 from torchvision.datasets import CIFAR10
@@ -26,9 +27,58 @@ from brevitas.export import export_qonnx
 from .logger import EvalEpochMeters
 from .logger import Logger
 from .logger import TrainingEpochMeters
-from .models import model_with_cfg
 from .models.losses import SqrHingeLoss
+from configparser import ConfigParser
 
+__all__ = [
+    'cnv_1w1a',
+    'cnv_1w2a',
+    'cnv_2w2a',
+    'sfc_1w1a',
+    'sfc_1w2a',
+    'sfc_2w2a',
+    'tfc_1w1a',
+    'tfc_1w2a',
+    'tfc_2w2a',
+    'lfc_1w1a',
+    'lfc_1w2a',
+    'resnet18_4w4a',
+    'model_with_cfg']
+
+from .model import cnv
+
+model_impl = {'CNV': cnv}
+
+def get_model_cfg(name):
+    cfg = ConfigParser()
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    config_path = os.path.join(current_dir, '..', 'cfg', name.lower() + '.ini')
+    assert os.path.exists(config_path), f"{config_path} not found."
+    cfg.read(config_path)
+    return cfg
+
+def model_with_cfg(name):
+    cfg = get_model_cfg(name)
+    arch = cfg.get('MODEL', 'ARCH')
+    model = model_impl[arch](cfg)
+    return model, cfg
+
+def cnv_1w1a():
+    model, _ = model_with_cfg('cnv_1w1a')
+    return model
+
+
+def cnv_1w2a():
+    model, _ = model_with_cfg('cnv_1w2a')
+    return model
+
+def cnv_2w1a():
+    model, _ = model_with_cfg('cnv_2w1a')
+    return model
+
+def cnv_2w2a():
+    model, _ = model_with_cfg('cnv_2w2a')
+    return model
 
 # Compute top-k accuracy (%) for a batch of predictions.
 def accuracy(output, target, topk=(1,)):
@@ -44,7 +94,6 @@ def accuracy(output, target, topk=(1,)):
         correct_k = correct[:k].flatten().float().sum(0)
         res.append(correct_k.mul_(100.0 / batch_size))
     return res
-
 
 class Trainer(object):
 

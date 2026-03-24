@@ -35,6 +35,7 @@ Using the FINN framework, quantized models are mapped to dataflow-style hardware
 The study investigates how neural networks trained in Brevitas are mapped to FPGA-accelerated neural networks and how different levels of quantisation that impact performance, as well as how these effects interact with architectural parallelism. 
 Through these experiments, the project aims to provide insight into the trade-offs between accuracy, resource utilisation, and performance in quantised neural network deployment on reconfigurable hardware.
 \section{Experiment 1: Analysis of the PyTorch to FPGA transformation pipeline for Quantized Neural Networks}
+This experiment is and end-to-end implementation of a BNN as described by \cite{}, we explore some of the black-box steps when converting a trained Brevitas/PyTorch network into an FPGA-usable bitstream.
 \subsection{System Setup}
 To evaluate quantized neural network acceleration on FPGA hardware, the FINN framework was deployed on a Diligent Arty-Z7-20 development board.
 FINN is an open-source framework developed by Xilinx/AMD that enables deployment of quantized neural networkks (QNNs) on FPGA platforms through automated hardware generation and compilation.
@@ -263,8 +264,44 @@ The relative utilities used in the model and trainscripts are:
 \inputminted[breaklines]{Python}{./Code/logger.py}
 \inputminted[breaklines]{Python}{./Code/losses.py}
 \inputminted[breaklines]{Python}{./Code/tensorNorm.py}
+To train a binarized neural network we then need a configuration file which specifies the parameters of the QNN:
+\begin{verbatim}
+# CNV_1W1A.ini
+[MODEL]
+ARCH: CNV
+DATASET: CIFAR10
+IN_CHANNELS: 3
+NUM_CLASSES: 10
 
+[QUANT]
+WEIGHT_BIT_WIDTH: 1
+ACT_BIT_WIDTH: 1
+IN_BIT_WIDTH: 8
+\end{verbatim}
+Inside the FINN install directory we enter the FINN docker environment using:
+\begin{verbatim}
+./run-docker.sh
+\end{verbatim}
+Then we train a binarized neural network with the following command:
+\begin{verbatim}
+BREVITAS_JIT=1 python train.py --network CNV_1W1A --experiments ./experiments --epochs 500 --batch_size 512 --gpus 0
+\end{verbatim}
+AlexNote TODO: add the GPU training results log here
+AlexNote TODO: add the GPU training results log here
+AlexNote TODO: add the GPU training results log here
+AlexNote TODO: add the GPU training results log here
+AlexNote TODO: add the GPU training results log here
+AlexNote TODO: add the GPU training results log here
+
+Now with a trained model, we can export the model to QONNX by executing:
+\begin{verbatim}
+BREVITAS_JIT=0 python train.py --evaluate --network CNV_1W1A --resume ./experiments/path/to/checkpoint.tar --export_qonnx --gpus 0 --batch_size 512
+\end{verbatim}
 \subsection{Preparing a trained Brevitas network for hardware synthesis}
+With the QONNX model at hand we can view the model graph using Netron:
+\begin{minted}{python}
+import netron
+\end{minted}
 \subsection{Evaluating the BNN compared to running on a GPU // Something like this}
 \section{Experiment 2: Impact of quantisation on neural network FPGA performance}
 \section{Experiment 3: Investigating parallelism in FPGA QNN performance}
