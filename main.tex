@@ -170,13 +170,37 @@ export NVIDIA_CONTAINER_TOOLKIT_VERSION=1.19.0-1
       libnvidia-container-tools=${NVIDIA_CONTAINER_TOOLKIT_VERSION} \
       libnvidia-container1=${NVIDIA_CONTAINER_TOOLKIT_VERSION}
 \end{verbatim}
+% AlexNote: Want to show that the GPU is detected in the console
 \subsubsection{PYNQ}
-Finally we need to install a PYNQ image to the Zynq-7000 SoC, we use the PYNQ 3.0.1 image prebuilt for the Pynq-Z1 which can be obtained from \url{https://www.pynq.io/boards.html}.
+We need to install a PYNQ image to the Zynq-7000 SoC, we use the PYNQ 3.0.1 image prebuilt for the Pynq-Z1 which can be obtained from \url{https://www.pynq.io/boards.html}.
 We burn the image to a microSD card using \verb+caligula+ (which can be installed with \verb+cargo install caligula+):
-% Say some stuff about having to move the jumpers on the board, flashing the PYNQ image, setting up internet connection
 \begin{verbatim}
-caligula burn Pynq
+caligula burn pynq_z1_v3.0.1.img
 \end{verbatim}
+The Arty-Z7-20 needs to have a couple jumpers set to allow booting from the SD card and enabling power from the micro USB port.
+First we set the JP4/Boot jumper to the SD position by placing the jumper over the top two pins of JP4 as shown in \ref{fig:setupBoard1}.
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1\linewidth]{Images/SetupBoard1.jpeg}
+    \caption{Image of the Arty-Z7-20 JP4 Jumper}
+    \label{fig:setupBoard1}
+\end{figure}
+Then to power the Arty-Z7-20 from a micro USB cable, set the JP5/Power jumper to the USB position by placing the jumper over the two left pins as shown in \ref{fig:setupBoard2}.
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1\linewidth]{Images/SetupBoard2.jpeg}
+    \caption{Image of the Arty-Z7-20 JP5 Jumper}
+    \label{fig:setupBoard2}
+\end{figure}
+Now we can insert the microSD card we flashed with PYNQ, connect the board via ethernet to the Ubuntu device, and power it via micro USB,
+A successful PYNQ install can be identified by observing LD0-LD3 be completely lit.
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1\linewidth]{Images/SetupBoard2.jpeg}
+    \caption{Arty-Z7-20 with successfully flashed PYNQ image}
+    \label{fig:setupBoard3}
+\end{figure}
+% Say some stuff about having to move the jumpers on the board, flashing the PYNQ image, setting up internet connection
 \subsection{Training a BNN using Brevitas}
 \subsection{Preparing a trained Brevitas network for hardware synthesis}
 \subsection{Evaluating the BNN compared to running on a GPU // Something like this}
