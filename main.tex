@@ -1,5 +1,30 @@
 \documentclass[11pt]{article}
 \usepackage{parskip,times, hyperref, cite, url, graphicx, float, fancyvrb, minted}
+\usepackage{tcolorbox}
+\tcbuselibrary{minted,skins,breakable}
+\newtcblisting{jupytercell}{
+  enhanced, breakable, listing only,
+  listing engine=minted,
+  minted language=python,
+  minted options={breaklines, fontsize=\small},
+  colback=gray!6,
+  colframe=blue!55!black,
+  leftrule=4pt, toprule=0.5pt, bottomrule=0.5pt, rightrule=0.5pt,
+  arc=2pt, left=6pt, right=4pt, top=3pt, bottom=3pt,
+}
+\newcommand{\jupyterinput}[1]{%
+  \tcbinputlisting{
+    enhanced, breakable, listing only,
+    listing engine=minted,
+    minted language=python,
+    minted options={breaklines, fontsize=\small},
+    colback=gray!6,
+    colframe=blue!55!black,
+    leftrule=4pt, toprule=0.5pt, bottomrule=0.5pt, rightrule=0.5pt,
+    arc=2pt, left=6pt, right=4pt, top=3pt, bottom=3pt,
+    listing file={#1}
+  }%
+}
 \usepackage[margin=1.0in]{geometry}
 \hypersetup{
     colorlinks=true,
@@ -134,7 +159,7 @@ We can verify that the FINN install works correctly by executing:
 cd finn
 ./run-docker.sh quicktest
 \end{verbatim}
-To setup the GPU for use within docker we first need the latest Nvidia \verb+cuda-drivers+ package, firstly install \verb+cuda-keyring+:
+To setup the GPU for use within Docker we first need the latest Nvidia \verb+cuda-drivers+ package, firstly install \verb+cuda-keyring+:
 \begin{verbatim}
 wget https://developer.download.nvidia.com/compute/cuda/repos/$distro/x86_64/cuda-keyring_1.1-1_all.deb
 dpkg -i cuda-keyring_1.1-1_all.deb
@@ -144,7 +169,7 @@ Then install the drivers:
 \begin{verbatim}
 sudo apt install cuda-drivers
 \end{verbatim}
-Now to provide GPU access to the FINN docker container, we need to install the Nvidia container toolkit \verb+nvidia-ctk+:
+Now to provide GPU access to the FINN Docker container, we need to install the Nvidia container toolkit \verb+nvidia-ctk+:
 \begin{verbatim}
 sudo apt-get update && sudo apt-get install -y --no-install-recommends \
    ca-certificates \
@@ -267,15 +292,15 @@ Batch normalisation is essential after each layer to stabilise training, as quan
 
 The model architecture consists of a sequence of quantised convolutional layers for feature extraction, followed by fully connected layers for classification. 
 The full implementation of the model is shown below.
-\inputminted[breaklines]{Python}{./Code/model.py}
+\jupyterinput{./Code/model.py}
 The train script is split into two parts: \texttt{trainer.py} which exposes a trainer class, and \texttt{train.py} which parses in arguments and is called to actually train a model.
-\inputminted[breaklines]{Python}{./Code/trainer.py}
-\inputminted[breaklines]{Python}{./Code/train.py}
+\jupyterinput{./Code/trainer.py}
+\jupyterinput{./Code/train.py}
 The relative utilities used in the model and trainscripts are:
-\inputminted[breaklines]{Python}{./Code/common.py}
-\inputminted[breaklines]{Python}{./Code/logger.py}
-\inputminted[breaklines]{Python}{./Code/losses.py}
-\inputminted[breaklines]{Python}{./Code/tensorNorm.py}
+\jupyterinput{./Code/common.py}
+\jupyterinput{./Code/logger.py}
+\jupyterinput{./Code/losses.py}
+\jupyterinput{./Code/tensorNorm.py}
 To train a binarized neural network we then need a configuration file which specifies the parameters of the QNN:
 \begin{verbatim}
 # CNV_1W1A.ini
@@ -290,7 +315,7 @@ WEIGHT_BIT_WIDTH: 1
 ACT_BIT_WIDTH: 1
 IN_BIT_WIDTH: 8
 \end{verbatim}
-Inside the FINN install directory we enter the FINN docker environment using:
+Inside the FINN install directory we enter the FINN Docker environment using:
 \begin{verbatim}
 cd finn
 ./run-docker.sh
@@ -318,17 +343,17 @@ We open a Jupyter notebook instance inside the FINN directory with:
 (The transformation code was run inside a Jupyter notebook and will be formatted in a cell-like manner)
 
 First some basic imports and config:
-\begin{minted}{python}
+\begin{jupytercell}
 from finn.util.basic import make_build_dir
 from finn.util.visualization import showInNetron
 import os
-    
+
 build_dir = os.environ["FINN_BUILD_DIR"]
 notebook_dir = os.environ['FINN_ROOT'] + "/notebooks"
 model_name = "cnv_w1a1"
-\end{minted}
+\end{jupytercell}
 
-\begin{minted}{python}
+\begin{jupytercell}
 import torch
 import onnx
 from brevitas.export import export_qonnx
@@ -343,7 +368,14 @@ from qonnx.transformation.infer_datatypes import InferDataTypes
 print(build_dir)
 export_onnx_path = notebook_dir + "/L46Stuff" + f"/{model_name}_export.onnx"
 showInNetron(export_onnx_path)
-\end{minted}
+\end{jupytercell}
+With this we can visualise the QONNX graph generated from training:
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\linewidth]{Images/Experiment1Graphs/InitialQONNX.png}
+    \caption{Initial ONNX graph before transformations}
+    \label{fig:InitialGraph}
+\end{figure}
 \subsection{Evaluating the BNN compared to running on a GPU // Something like this}
 \section{Experiment 2: Impact of quantisation on neural network FPGA performance}
 \section{Experiment 3: Investigating parallelism in FPGA QNN performance}
