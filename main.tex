@@ -372,28 +372,93 @@ showInNetron(export_onnx_path)
 With this we can visualise the QONNX graph generated from training:
 \begin{figure}[H]
     \centering
-    \includegraphics[width=\linewidth]{Images/Experiment1Graphs/split/InitialQONNX_p1.png}
+    \includegraphics[height=0.88\textheight, keepaspectratio]{Images/Experiment1Graphs/split/InitialQONNX_p1.png}
     \caption{Initial ONNX graph before transformations (1/4)}
     \label{fig:InitialGraph}
 \end{figure}
 \begin{figure}[H]
     \centering
-    \includegraphics[width=\linewidth]{Images/Experiment1Graphs/split/InitialQONNX_p2.png}
+    \includegraphics[height=0.88\textheight, keepaspectratio]{Images/Experiment1Graphs/split/InitialQONNX_p2.png}
     \caption{Initial ONNX graph before transformations (2/4)}
 \end{figure}
 \begin{figure}[H]
     \centering
-    \includegraphics[width=\linewidth]{Images/Experiment1Graphs/split/InitialQONNX_p3.png}
+    \includegraphics[height=0.88\textheight, keepaspectratio]{Images/Experiment1Graphs/split/InitialQONNX_p3.png}
     \caption{Initial ONNX graph before transformations (3/4)}
 \end{figure}
 \begin{figure}[H]
     \centering
-    \includegraphics[width=\linewidth]{Images/Experiment1Graphs/split/InitialQONNX_p4.png}
+    \includegraphics[height=0.88\textheight, keepaspectratio]{Images/Experiment1Graphs/split/InitialQONNX_p4.png}
     \caption{Initial ONNX graph before transformations (4/4)}
 \end{figure}
+Next we convert the model from QONNX to FINN-ONNX:
+\begin{jupytercell}
+qonnx_cleanup(export_onnx_path, out_file=export_onnx_path)
+model = ModelWrapper(export_onnx_path)
+model = model.transform(ConvertQONNXtoFINN())
+model.save(build_dir + f"/end2end_{model_name}_FINNONNX.onnx")
+showInNetron(build_dir+f"/end2end_{model_name}_FINNONNX.onnx")
+\end{jupytercell}
+AlexNote TODO: Add the ConvertQONNXtoFINN netron graph here and discuss what it does.
+
+We perform some basic transformations to prepare the graph for upcoming transformations, these include:
+\begin{itemize}
+    \item \verb+GiveUniqueNodeNames+
+    \item \verb+GiveReadableTensorNames+
+    \item \verb+InferShapes+
+    \item \verb+InferDataTypes+
+    \item \verb+FoldConstants+
+    \item \verb+RemoveStaticGraphInputs+
+\end{itemize}
+The transformations \verb+GiveUniqueNodeNames+ and \verb+GiveReadableTensorNames+ give the nodes in the graph unique names by their enumeration, tensors are then given human-readable names based on the node names.
+The \verb+InferShapes+ and \verb+InferDataTypes+ transformations derive shapes and data types of the tensors from the model properties and sets them in the \verb+ValueInfo+ property of the model.
+These four transformations do not affect the structure of the graph.
+
+The remaining two transformations modify the structure of the graph, \verb+FoldConstants+ identifies nodes with constant inputs and calculates the output, then for the following node the inputs are set as constant-only inputs and the previous node is deleted.
+\verb+FoldConstants+ is useful for FPGA synthesis as it reduces the number of nodes (blocks) that need to be stitched together in the final design.
+The other mutating basic transformation is \verb+RemoveStaticGraphInputs+, this transformation removes any top-level graph inputs that already are associated with ONNX initialisers.
+
+Executing this cell transforms the model into Fig~\ref{fig:AfterTidyUp}
+\begin{jupytercell}
+model = model.transform(InferShapes())
+model = model.transform(FoldConstants())
+model = model.transform(GiveUniqueNodeNames())
+model = model.transform(GiveReadableTensorNames())
+model = model.transform(InferDataTypes())
+model = model.transform(RemoveStaticGraphInputs())
+model.save(build_dir + f"/end2end_{model_name}_tidy.onnx")
+showInNetron(build_dir+f"/end2end_{model_name}_tidy.onnx")
+\end{jupytercell}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[height=0.88\textheight, keepaspectratio]{Images/Experiment1Graphs/split/AfterTidyUp_p1.png}
+    \caption{FINN-ONNX graph after tidy-up transformations (1/4)}
+    \label{fig:AfterTidyUp}
+\end{figure}
+\begin{figure}[H]
+    \centering
+    \includegraphics[height=0.88\textheight, keepaspectratio]{Images/Experiment1Graphs/split/AfterTidyUp_p2.png}
+    \caption{FINN-ONNX graph after tidy-up transformations (2/4)}
+\end{figure}
+\begin{figure}[H]
+    \centering
+    \includegraphics[height=0.88\textheight, keepaspectratio]{Images/Experiment1Graphs/split/AfterTidyUp_p3.png}
+    \caption{FINN-ONNX graph after tidy-up transformations (3/4)}
+\end{figure}
+\begin{figure}[H]
+    \centering
+    \includegraphics[height=0.88\textheight, keepaspectratio]{Images/Experiment1Graphs/split/AfterTidyUp_p4.png}
+    \caption{FINN-ONNX graph after tidy-up transformations (4/4)}
+\end{figure}
+You can see that the CNN has been transformed into a sequential network as a result of the mutating changes removing constants and static graph inputs.
+For example you see that the first \verb+BipolarQuant+ node in Fig~\ref{fig:InitialGraph} has been moved into the \verb+conv+ node in \ref{fig:AfterTidyUp}.
+From this netron representation, it is clear now that the model consists of an initial \verb+MultiThreshold+ layer which quantizes float input into 8-bit, followed by repeating convolution-convolution-maxpool layer pattern with 3x3 filters for feature extraction. Finally followed by fully-connected layers for classification.
+Transforming the network into a sequential set of nodes is useful for FPGA deployment as it reduces the amount of hardware resources used to implement the network.
+Additionally it allows for easier implementation of selective parallelism, which is explored more in \ref{Experiment3}.
 \subsection{Evaluating the BNN compared to running on a GPU // Something like this}
 \section{Experiment 2: Impact of quantisation on neural network FPGA performance}
-\section{Experiment 3: Investigating parallelism in FPGA QNN performance}
+\section{Experiment 3: Investigating parallelism in FPGA QNN performance}\label{Experiment3}
 Basically see if parallelism with certain quantisation sizes has some impact.
 Use minimal, small, and the w1a1 things in hardware
 \newpage
