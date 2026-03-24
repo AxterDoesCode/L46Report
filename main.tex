@@ -451,8 +451,8 @@ showInNetron(build_dir+f"/end2end_{model_name}_tidy.onnx")
     \includegraphics[height=0.88\textheight, keepaspectratio]{Images/Experiment1Graphs/split/AfterTidyUp_p4.png}
     \caption{FINN-ONNX graph after tidy-up transformations (4/4)}
 \end{figure}
-You can see that the CNN has been transformed into a sequential network as a result of the mutating changes removing constants and static graph inputs.
-For example you see that the first \verb+BipolarQuant+ node in Fig~\ref{fig:InitialGraph} has been moved into the \verb+conv+ node in \ref{fig:AfterTidyUp}.
+We can see that the CNN has been transformed into a sequential network as a result of the mutating changes removing constants and static graph inputs.
+For example, the first \verb+BipolarQuant+ node in Fig~\ref{fig:InitialGraph} has been moved into the \verb+conv+ node in \ref{fig:AfterTidyUp}.
 From this netron representation, it is clear now that the model consists of an initial \verb+MultiThreshold+ layer which quantizes float input into 8-bit, followed by repeating convolution-convolution-maxpool layer pattern with 3x3 filters for feature extraction. Finally followed by fully-connected layers for classification.
 Transforming the network into a sequential set of nodes is useful for FPGA deployment as it reduces the amount of hardware resources used to implement the network.
 Additionally it allows for easier implementation of selective parallelism, which is explored more in \ref{Experiment3}.
