@@ -193,14 +193,56 @@ Then to power the Arty-Z7-20 from a micro USB cable, set the JP5/Power jumper to
     \label{fig:setupBoard2}
 \end{figure}
 Now we can insert the microSD card we flashed with PYNQ, connect the board via ethernet to the Ubuntu device, and power it via micro USB,
-A successful PYNQ install can be identified by observing LD0-LD3 be completely lit.
+% \begin{figure}[H]
+%     \centering
+%     \includegraphics[width=1\linewidth]{Images/SetupBoard2.jpeg}
+%     \caption{Arty-Z7-20 with successfully flashed PYNQ image}
+%     \label{fig:setupBoard3}
+% \end{figure}
+We can identify the device connected to the Ubuntu pc successfully by executing:
+\begin{verbatim}
+ip neigh
+\end{verbatim}
+Which outputs something like:
+\begin{verbatim}
+192.168.2.247 dev enxd0c0bf48c3bb lladdr 00:17:3e:e3:a1:63 REACHABLE
+\end{verbatim}
+This \verb+enxd0c0bf48c3bb+ is the ethernet interface that the development board is connected to.
+
+We can add an ssh key to the board, replacing PATH\_TO\_YOUR\_PUBKEY with a public key created by \verb+ssh-keygen+
+The default user on Pynq images is \verb+xilinx+ with the root password also being \verb+xilinx+.
+\begin{verbatim}
+ssh-copy-id -i PATH_TO_YOUR_PUBKEY xilinx@192.168.2.247
+\end{verbatim}
+The Zynq-7000 needs internet access, as it connects directly to the Ubuntu pc we can setup a network bridge so that the board gets internet access.
+Locate the wired network tab in Ubuntu settings:
 \begin{figure}[H]
     \centering
-    \includegraphics[width=1\linewidth]{Images/SetupBoard2.jpeg}
-    \caption{Arty-Z7-20 with successfully flashed PYNQ image}
-    \label{fig:setupBoard3}
+    \includegraphics[width=1\linewidth]{Images/SetupNetwork1.jpeg}
+    \caption{Ubuntu wired network tab}
+    \label{fig:setupNetwork1}
 \end{figure}
-% Say some stuff about having to move the jumpers on the board, flashing the PYNQ image, setting up internet connection
+Clicking the cog, we access the IPv4 tab where we set the IPv4 method to \verb+Shared to other computers+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1\linewidth]{Images/SetupNetwork2.jpeg}
+    \caption{Ethernet interface IPv4 forwarding}
+    \label{fig:setupNetwork2}
+\end{figure}
+Now we can ssh into the PS of the board:
+\begin{verbatim}
+ssh xilinx@192.168.2.247
+\end{verbatim}
+And we can verify that the board now has internet access:
+\begin{verbatim}
+ping google.com
+\end{verbatim}
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1\linewidth]{Images/confirmNetwork.jpeg}
+    \caption{Terminal output from network test}
+    \label{fig:confirmNetwork}
+\end{figure}
 \subsection{Training a BNN using Brevitas}
 \subsection{Preparing a trained Brevitas network for hardware synthesis}
 \subsection{Evaluating the BNN compared to running on a GPU // Something like this}
