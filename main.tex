@@ -1,7 +1,14 @@
 \documentclass[11pt]{article}
-\usepackage{parskip,times, hyperref, cite, url, graphicx, float}
+\usepackage{parskip,times, hyperref, cite, url, graphicx, float, fancyvrb, minted}
 \usepackage[margin=1.5in]{geometry}
-
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    filecolor=magenta,      
+    urlcolor=cyan,
+    pdftitle={L46Project},
+    pdfpagemode=FullScreen,
+    }
 \begin{document}
 
 \vspace{-2em}
@@ -55,11 +62,121 @@ Ubuntu 24.04 was selected as the development OS for a couple of reasons: The FIN
 Ubuntu was installed following the interactive installer, one-thing to note is that the Vivado install uses a large amount of data in the /tmp directory. Some Ubuntu install guides recommend allocating a separate 20-30GB partition purely for /tmp, we recommended allocating only a single root partition for the install so that tmp doesn't run out of memory during the Vivado Design Suite Installation, as it uses over 80GB of /tmp memory.
 \subsubsection{Xilinx Design Suite 2022.2}
 The FINN compiler currently only supports Vivado Design Suite 2022.2, this is slightly troublesome as the newest version of Ubuntu this Vivado version supports is Ubuntu 22.04.
-We (libtinfocurses stupid thing)
+Specifically, the \verb+libtinfo55+, \verb+libncurses5+ and \verb+libncurses5-dev+ libraries are missing in Ubuntu 24.04, which causes the Vivado install to hang
+To install them we do the following:
+\begin{verbatim}
+sudo nano /etc/apt/sources.list.d/ubuntu.sources
+\end{verbatim}
+At the end of the file, append:
+\begin{verbatim}
+Types: deb
+URIs: http://old-releases.ubuntu.com/ubuntu/
+Suites: lunar
+Components: universe
+Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
+\end{verbatim}
+Then save the file and run:
+\begin{verbatim}
+sudo apt update
+\end{verbatim}
+Then install the required libraries:
+\begin{verbatim}
+sudo apt install libtinfo5 libncurses5-dev libncurses5
+\end{verbatim}
+Now we can go to the \href{https://www.xilinx.com/support/download/index.html/content/xilinx/en/downloadNav/vivado-design-tools/archive.html}{Xilinx Download Page} and download the unified installer for version 2022.2.
 \subsubsection{FINN}
-in here mention about how FINN has a version of Brevitas which has an outdated train.py script, 
-\subsubsection{PYNQ/Development Board}
-Say some stuff about having to move the jumpers on the board, flashing the PYNQ image, setting up internet connection
+The FINN compiler requires a Docker install to run without root permissions:
+\begin{verbatim}
+# Add Docker's official GPG key:
+sudo apt update
+sudo apt install ca-certificates curl
+sudo install -m 0755 -d /etc/apt/keyrings
+sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+sudo chmod a+r /etc/apt/keyrings/docker.asc
+
+# Add the repository to Apt sources:
+sudo tee /etc/apt/sources.list.d/docker.sources <<EOF
+Types: deb
+URIs: https://download.docker.com/linux/ubuntu
+Suites: $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}")
+Components: stable
+Signed-By: /etc/apt/keyrings/docker.asc
+EOF
+
+sudo apt update
+\end{verbatim}
+Then to install the required dependencies:
+\begin{verbatim}
+sudo apt install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+\end{verbatim}
+To run docker rootless, we need to create a \verb+docker+ user group and add it to the current user.
+\begin{verbatim}
+sudo groupadd docker
+sudo usermod -aG docker $USER
+\end{verbatim}
+Logging out and logging back in should update the usergroups for the current user, we can confirm that the rootless setup works by running:
+\begin{verbatim}
+docker run hello-world
+\end{verbatim}
+FINN depends on \verb+FINN_XILINX_PATH+ and \verb+FINN_XILINX_VERSION+ environment variables to point to the Xilinx tools installation directory and version.
+Append the following to \verb+.bashrc+:
+\begin{verbatim}
+FINN_XILINX_PATH=/opt/Xilinx
+FINN_XILINX_VERSION=2022.2
+\end{verbatim}
+We provide a fork of the FINN compiler which bundles a modified version of Brevitas:
+\begin{verbatim}
+git clone https://github.com/AxterDoesCode/finn.git
+\end{verbatim}
+We can verify that the FINN install works correctly by executing:
+\begin{verbatim}
+cd finn
+./run-docker.sh quicktest
+\end{verbatim}
+To setup the GPU for use within docker we first need the latest Nvidia \verb+cuda-drivers+ package, firstly install \verb+cuda-keyring+:
+\begin{verbatim}
+wget https://developer.download.nvidia.com/compute/cuda/repos/$distro/x86_64/cuda-keyring_1.1-1_all.deb
+dpkg -i cuda-keyring_1.1-1_all.deb
+sudo apt update
+\end{verbatim}
+Then install the drivers:
+\begin{verbatim}
+sudo apt install cuda-drivers
+\end{verbatim}
+Now to provide GPU access to the FINN docker container, we need to install the Nvidia container toolkit \verb+nvidia-ctk+:
+\begin{verbatim}
+sudo apt-get update && sudo apt-get install -y --no-install-recommends \
+   ca-certificates \
+   curl \
+   gnupg2
+\end{verbatim}
+Then add the production reposiitory:
+\begin{verbatim}
+curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg \
+  && curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | \
+    sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | \
+    sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
+\end{verbatim}
+Update the packages list from the repository:
+\begin{verbatim}
+sudo apt-get update
+\end{verbatim}
+Finally install the container toolkit packages:
+\begin{verbatim}
+export NVIDIA_CONTAINER_TOOLKIT_VERSION=1.19.0-1
+  sudo apt-get install -y \
+      nvidia-container-toolkit=${NVIDIA_CONTAINER_TOOLKIT_VERSION} \
+      nvidia-container-toolkit-base=${NVIDIA_CONTAINER_TOOLKIT_VERSION} \
+      libnvidia-container-tools=${NVIDIA_CONTAINER_TOOLKIT_VERSION} \
+      libnvidia-container1=${NVIDIA_CONTAINER_TOOLKIT_VERSION}
+\end{verbatim}
+\subsubsection{PYNQ}
+Finally we need to install a PYNQ image to the Zynq-7000 SoC, we use the PYNQ 3.0.1 image prebuilt for the Pynq-Z1 which can be obtained from \url{https://www.pynq.io/boards.html}.
+We burn the image to a microSD card using \verb+caligula+ (which can be installed with \verb+cargo install caligula+):
+% Say some stuff about having to move the jumpers on the board, flashing the PYNQ image, setting up internet connection
+\begin{verbatim}
+caligula burn Pynq
+\end{verbatim}
 \subsection{Training a BNN using Brevitas}
 \subsection{Preparing a trained Brevitas network for hardware synthesis}
 \subsection{Evaluating the BNN compared to running on a GPU // Something like this}
