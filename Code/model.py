@@ -1,20 +1,18 @@
-# File: model.py
+# model.py
+# Defines the CNV quantised CNN architecture for CIFAR-10 classification
+# using Brevitas quantisation-aware training layers.
+
 import torch
 import torch.nn as nn
 
-# Brevitas quantization layers
 from brevitas.core.restrict_val import RestrictValueType
 from brevitas.nn import QuantConv2d, QuantLinear, QuantIdentity
 
-# Local project utilities
 from .common import CommonActQuant, CommonWeightQuant
 from .tensor_norm import TensorNorm
 
 
-# -----------------------------
 # Architecture configuration
-# -----------------------------
-
 # (output_channels, apply_maxpool)
 CONV_CHANNELS = [
     (64, False),
@@ -22,13 +20,13 @@ CONV_CHANNELS = [
     (128, False),
     (128, True),
     (256, False),
-    (256, False)
+    (256, False),
 ]
 
-# Fully connected layer sizes
+# (in_features, out_features) for the hidden FC layers
 FC_LAYERS = [
     (256, 512),
-    (512, 512)
+    (512, 512),
 ]
 
 FINAL_FC_INPUT = 512
@@ -36,21 +34,15 @@ KERNEL_SIZE = 3
 POOL_SIZE = 2
 
 
-# -----------------------------
-# Main CNN Model
-# -----------------------------
 class CNV(nn.Module):
+
     def __init__(self, num_classes, weight_bit_width, act_bit_width, in_bit_width, in_ch):
         super().__init__()
 
-        # These will store sequential layers
         self.conv_layers = nn.ModuleList()
         self.fc_layers = nn.ModuleList()
 
-        # ----------------------------------
-        # Input Quantization Layer
-        # ----------------------------------
-        # This simulates quantizing the input image (e.g., fixed-point Q1.7 format)
+        # Input quantisation: fixed-point Q1.7 format covering [-1, 1 - 2^-7]
         self.conv_layers.append(
             QuantIdentity(
                 act_quant=CommonActQuant,
@@ -62,12 +54,10 @@ class CNV(nn.Module):
             )
         )
 
-        # ----------------------------------
-        # Convolutional Feature Extractor
-        # ----------------------------------
+        # Convolutional feature extractor
+        # Each block: QuantConv2d -> BatchNorm2d -> QuantIdentity [-> MaxPool2d]
         for out_ch, use_pool in CONV_CHANNELS:
 
-            # Quantized convolution (weights are quantized)
             self.conv_layers.append(
                 QuantConv2d(
                     in_channels=in_ch,
@@ -78,14 +68,9 @@ class CNV(nn.Module):
                     weight_bit_width=weight_bit_width
                 )
             )
-
-            # Update input channels for next layer
             in_ch = out_ch
 
-            # BatchNorm stabilizes training
             self.conv_layers.append(nn.BatchNorm2d(in_ch, eps=1e-4))
-
-            # Quantized activation (like ReLU but quantized)
             self.conv_layers.append(
                 QuantIdentity(
                     act_quant=CommonActQuant,
@@ -93,18 +78,13 @@ class CNV(nn.Module):
                 )
             )
 
-            # Optional downsampling
             if use_pool:
-                self.conv_layers.append(
-                    nn.MaxPool2d(kernel_size=POOL_SIZE)
-                )
+                self.conv_layers.append(nn.MaxPool2d(kernel_size=POOL_SIZE))
 
-        # ----------------------------------
-        # Fully Connected Layers
-        # ----------------------------------
+        # Fully connected classifier
+        # Each block: QuantLinear -> BatchNorm1d -> QuantIdentity
         for in_features, out_features in FC_LAYERS:
 
-            # Quantized linear layer
             self.fc_layers.append(
                 QuantLinear(
                     in_features=in_features,
@@ -114,11 +94,7 @@ class CNV(nn.Module):
                     weight_bit_width=weight_bit_width
                 )
             )
-
-            # BatchNorm for stability
             self.fc_layers.append(nn.BatchNorm1d(out_features, eps=1e-4))
-
-            # Quantized activation
             self.fc_layers.append(
                 QuantIdentity(
                     act_quant=CommonActQuant,
@@ -126,9 +102,7 @@ class CNV(nn.Module):
                 )
             )
 
-        # ----------------------------------
-        # Final Classification Layer
-        # ----------------------------------
+        # Final classification layer + TensorNorm to stabilise logits
         self.fc_layers.append(
             QuantLinear(
                 in_features=FINAL_FC_INPUT,
@@ -138,26 +112,15 @@ class CNV(nn.Module):
                 weight_bit_width=weight_bit_width
             )
         )
-
-        # Normalization of final outputs (helps training stability)
         self.fc_layers.append(TensorNorm())
 
-        # ----------------------------------
-        # Weight Initialization
-        # ----------------------------------
-        # Initialize all quantized weights uniformly in [-1, 1]
+        # Initialise all quantised weights uniformly in [-1, 1]
         for module in self.modules():
             if isinstance(module, (QuantConv2d, QuantLinear)):
                 torch.nn.init.uniform_(module.weight.data, -1, 1)
 
-    # ----------------------------------
-    # Optional: Weight Clipping
-    # ----------------------------------
+    # Clamp weights to [min_val, max_val] after each optimiser step.
     def clip_weights(self, min_val, max_val):
-        """
-        Clamp weights to a fixed range.
-        Useful for quantization stability.
-        """
         for layer in self.conv_layers:
             if isinstance(layer, QuantConv2d):
                 layer.weight.data.clamp_(min_val, max_val)
@@ -166,39 +129,24 @@ class CNV(nn.Module):
             if isinstance(layer, QuantLinear):
                 layer.weight.data.clamp_(min_val, max_val)
 
-    # ----------------------------------
-    # Forward Pass
-    # ----------------------------------
     def forward(self, x):
-        """
-        Defines how data flows through the network.
-        """
-
-        # Rescale input from [0, 1] → [-1, 1]
+        # Rescale input from [0, 1] to [-1, 1] to match the quantisation range
         x = 2.0 * x - 1.0
 
-        # Pass through convolutional layers
         for layer in self.conv_layers:
             x = layer(x)
 
-        # Flatten feature maps into a vector
+        # Flatten spatial feature maps into a 1-D vector per sample
         x = x.view(x.size(0), -1)
 
-        # Pass through fully connected layers
         for layer in self.fc_layers:
             x = layer(x)
 
         return x
 
 
-# -----------------------------
-# Model Factory Function
-# -----------------------------
+# Builds the CNV model from a ConfigParser object.
 def cnv(cfg):
-    """
-    Builds the model from a config object.
-    """
-
     weight_bit_width = cfg.getint('QUANT', 'WEIGHT_BIT_WIDTH')
     act_bit_width = cfg.getint('QUANT', 'ACT_BIT_WIDTH')
     in_bit_width = cfg.getint('QUANT', 'IN_BIT_WIDTH')

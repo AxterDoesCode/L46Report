@@ -1,10 +1,13 @@
+# logger.py
+# Utilities for tracking and logging training/evaluation metrics.
+
 import logging
 import os
 import sys
 
 
+# Tracks a running average, sum, count, and most recent value for a scalar metric.
 class AverageMeter(object):
-    """Computes and stores the average and current value"""
 
     def __init__(self):
         self.reset()
@@ -15,6 +18,7 @@ class AverageMeter(object):
         self.sum = 0
         self.count = 0
 
+    # n is the number of samples that produced this value.
     def update(self, val, n=1):
         self.val = val
         self.sum += val * n
@@ -22,6 +26,7 @@ class AverageMeter(object):
         self.avg = self.sum / self.count
 
 
+# AverageMeter containers for training and evaluation epochs.
 class TrainingEpochMeters(object):
 
     def __init__(self):
@@ -42,6 +47,7 @@ class EvalEpochMeters(object):
         self.top5 = AverageMeter()
 
 
+# Writes timestamped messages to stdout and optionally to a log.txt file.
 class Logger(object):
 
     def __init__(self, output_dir_path, dry_run):
@@ -49,13 +55,13 @@ class Logger(object):
         self.log = logging.getLogger('log')
         self.log.setLevel(logging.INFO)
 
-        # Stout logging
+        # Stdout handler
         out_hdlr = logging.StreamHandler(sys.stdout)
         out_hdlr.setFormatter(logging.Formatter('%(asctime)s %(message)s'))
         out_hdlr.setLevel(logging.INFO)
         self.log.addHandler(out_hdlr)
 
-        # Txt logging
+        # File handler (skipped in dry-run mode)
         if not dry_run:
             file_hdlr = logging.FileHandler(os.path.join(self.output_dir_path, 'log.txt'))
             file_hdlr.setFormatter(logging.Formatter('%(asctime)s %(message)s'))

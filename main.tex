@@ -258,6 +258,12 @@ The full implementation of the model is shown below.
 The train script is split into two parts: \texttt{trainer.py} which exposes a trainer class, and \texttt{train.py} which parses in arguments and is called to actually train a model.
 \inputminted[breaklines]{Python}{./Code/trainer.py}
 \inputminted[breaklines]{Python}{./Code/train.py}
+The relative utilities used in the model and trainscripts are:
+\inputminted[breaklines]{Python}{./Code/common.py}
+\inputminted[breaklines]{Python}{./Code/logger.py}
+\inputminted[breaklines]{Python}{./Code/losses.py}
+\inputminted[breaklines]{Python}{./Code/tensorNorm.py}
+
 \subsection{Preparing a trained Brevitas network for hardware synthesis}
 \subsection{Evaluating the BNN compared to running on a GPU // Something like this}
 \section{Experiment 2: Impact of quantisation on neural network FPGA performance}

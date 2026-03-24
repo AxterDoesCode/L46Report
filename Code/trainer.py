@@ -1,4 +1,8 @@
-# File: trainer.py
+# trainer.py
+# Core training and evaluation logic for the CNV quantised network.
+# Handles model setup, the training/evaluation loops, checkpointing,
+# and ONNX export.
+
 from datetime import datetime
 from hashlib import sha256
 import os
@@ -25,8 +29,9 @@ from .logger import TrainingEpochMeters
 from .models import model_with_cfg
 from .models.losses import SqrHingeLoss
 
+
+# Compute top-k accuracy (%) for a batch of predictions.
 def accuracy(output, target, topk=(1,)):
-    """Computes the precision@k for the specified values of k"""
     maxk = max(topk)
     batch_size = target.size(0)
 
@@ -47,17 +52,17 @@ class Trainer(object):
 
         model, cfg = model_with_cfg(args.network, args.pretrained)
 
-        # Catch invalid settings
         self.validate(args)
-
-        # Init arguments
         self.args = args
+
+        # Build a unique experiment name from network, bit-widths, and timestamp
         prec_name = "_{}W{}A".format(
             cfg.getint('QUANT', 'WEIGHT_BIT_WIDTH'), cfg.getint('QUANT', 'ACT_BIT_WIDTH'))
         experiment_name = '{}{}_{}'.format(
             args.network, prec_name, datetime.now().strftime('%Y%m%d_%H%M%S'))
         self.output_dir_path = os.path.join(args.experiments, experiment_name)
 
+        # When resuming, reuse the existing experiment directory
         if self.args.resume:
             self.output_dir_path, _ = os.path.split(args.resume)
             self.output_dir_path, _ = os.path.split(self.output_dir_path)
@@ -67,46 +72,49 @@ class Trainer(object):
             if not args.resume:
                 os.mkdir(self.output_dir_path)
                 os.mkdir(self.checkpoints_dir_path)
-        # If we want to export a ONNX model, we still need to make output dirs
+
+        # ONNX export always needs an output directory
         if args.export_qonnx or args.export_qcdq_onnx:
             self.output_onnx_path = os.path.join(self.output_dir_path, "onnx")
             os.makedirs(self.output_onnx_path, exist_ok=True)
 
         self.logger = Logger(self.output_dir_path, args.dry_run)
 
-        # Randomness
+        # Seed all RNGs for reproducibility
         random.seed(args.random_seed)
         torch.manual_seed(args.random_seed)
         torch.cuda.manual_seed_all(args.random_seed)
 
-        # Datasets
+        # Dataset setup
         transform_to_tensor = transforms.Compose([transforms.ToTensor()])
 
         dataset = cfg.get('MODEL', 'DATASET')
         self.num_classes = cfg.getint('MODEL', 'NUM_CLASSES')
+
         if dataset == 'CIFAR10':
+            # Training augmentation: random crop + horizontal flip
             train_transforms_list = [
                 transforms.RandomCrop(32, padding=4),
                 transforms.RandomHorizontalFlip(),
-                transforms.ToTensor()]
+                transforms.ToTensor(),
+            ]
             transform_train = transforms.Compose(train_transforms_list)
             builder = CIFAR10
         else:
             raise Exception("Dataset not supported: {}".format(args.dataset))
 
         train_set = builder(root=args.datadir, train=True, download=True, transform=transform_train)
-        test_set = builder(
-            root=args.datadir, train=False, download=True, transform=transform_to_tensor)
+        test_set = builder(root=args.datadir, train=False, download=True, transform=transform_to_tensor)
+
         self.train_loader = DataLoader(
             train_set, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers)
         self.test_loader = DataLoader(
             test_set, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers)
 
-        # Init starting values
         self.starting_epoch = 1
         self.best_val_acc = 0
 
-        # Setup device
+        # Device configuration
         if args.gpus is not None:
             args.gpus = [int(i) for i in args.gpus.split(',')]
             self.device = 'cuda:' + str(args.gpus[0])
@@ -117,10 +125,10 @@ class Trainer(object):
             print("Using CPU")
         self.device = torch.device(self.device)
 
-        # Resume checkpoint, if any
         if args.resume:
             model = self.load_checkpoint(model, args.resume, args.strict)
 
+        # Serialise state_dict to a hashed .pth file and exit if requested
         if args.state_dict_to_pth:
             state_dict = model.state_dict()
             name = args.network.lower()
@@ -149,7 +157,7 @@ class Trainer(object):
             raise ValueError(f"{args.loss} not supported.")
         self.criterion = self.criterion.to(device=self.device)
 
-        # Init optimizer
+        # Optimiser
         if args.optim == 'ADAM':
             self.optimizer = optim.Adam(
                 self.model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
@@ -160,7 +168,7 @@ class Trainer(object):
                 momentum=self.args.momentum,
                 weight_decay=self.args.weight_decay)
 
-        # Resume optimizer, if any
+        # Restore optimiser state when resuming a training run
         if args.resume and not args.evaluate:
             self.logger.log.info("Loading optimizer checkpoint")
             if 'optim_dict' in package.keys():
@@ -173,13 +181,13 @@ class Trainer(object):
         # LR scheduler
         if args.scheduler == 'STEP':
             milestones = [int(i) for i in args.milestones.split(',')]
-            self.scheduler = MultiStepLR(optimizer=self.optimizer, milestones=milestones, gamma=0.1)
+            self.scheduler = MultiStepLR(
+                optimizer=self.optimizer, milestones=milestones, gamma=0.1)
         elif args.scheduler == 'FIXED':
             self.scheduler = None
         else:
             raise Exception("Unrecognized scheduler {}".format(self.args.scheduler))
 
-        # Resume scheduler, if any
         if args.resume and not args.evaluate and self.scheduler is not None:
             self.scheduler.last_epoch = package['epoch']
 
@@ -189,7 +197,7 @@ class Trainer(object):
         if "RESNET" in args.network and args.gpus is not None and not args.evaluate:
             assert len(args.gpus) == 1, "Training ResNet models is currently not supported with multiple GPUs, see: https://github.com/Xilinx/brevitas/issues/1349"
 
-    # Move model to CPU for reloading state_dicts or export - handles if model is data parallel
+    # Move model to CPU, unwrapping DataParallel if necessary.
     def to_cpu(self, model):
         if isinstance(model, nn.DataParallel):
             self.logger.log.info("Converting Model from `nn.DataParallel` to `nn.Module`")
@@ -197,7 +205,7 @@ class Trainer(object):
         model = model.to(device="cpu")
         return model
 
-    # Load checkpoint onto CPU
+    # Load a saved checkpoint, stripping any DataParallel 'module.' prefixes.
     def load_checkpoint(self, model, checkpoint_path, strict):
 
         def maybe_remove_prefix(state_dict, prefix='module'):
@@ -226,26 +234,25 @@ class Trainer(object):
     def checkpoint_best(self, epoch, name):
         best_path = os.path.join(self.checkpoints_dir_path, name)
         self.logger.info("Saving checkpoint model to {}".format(best_path))
-        torch.save({
-            'state_dict': self.model.state_dict(),
-            'optim_dict': self.optimizer.state_dict(),
-            'epoch': epoch,
-            'best_val_acc': self.best_val_acc,},
-                   best_path)
+        torch.save(
+            {
+                'state_dict': self.model.state_dict(),
+                'optim_dict': self.optimizer.state_dict(),
+                'epoch': epoch,
+                'best_val_acc': self.best_val_acc,
+            },
+            best_path)
 
     def train_model(self):
 
-        # training starts
         if self.args.detect_nan:
             torch.autograd.set_detect_anomaly(True)
 
         for epoch in range(self.starting_epoch, self.args.epochs + 1):
 
-            # Set to training mode
             self.model.train()
             self.criterion.train()
 
-            # Init metrics
             epoch_meters = TrainingEpochMeters()
             start_data_loading = time.time()
 
@@ -254,7 +261,7 @@ class Trainer(object):
                 input = input.to(self.device, non_blocking=True)
                 target = target.to(self.device, non_blocking=True)
 
-                # for hingeloss only
+                # SqrHingeLoss requires one-hot +-1 encoded targets
                 if isinstance(self.criterion, SqrHingeLoss):
                     target = target.unsqueeze(1)
                     target_onehot = torch.Tensor(target.size(0), self.num_classes).to(
@@ -266,23 +273,20 @@ class Trainer(object):
                 else:
                     target_var = target
 
-                # measure data loading time
                 epoch_meters.data_time.update(time.time() - start_data_loading)
 
-                # Training batch starts
                 start_batch = time.time()
                 output = self.model(input)
                 loss = self.criterion(output, target_var)
 
-                # compute gradient and do SGD step
                 self.optimizer.zero_grad()
                 loss.backward()
                 self.optimizer.step()
 
+                # Clip weights to the quantisation range after each step
                 if hasattr(self.model, 'clip_weights'):
                     self.model.clip_weights(-1, 1)
 
-                # measure elapsed time
                 epoch_meters.batch_time.update(time.time() - start_batch)
 
                 if i % int(self.args.log_freq) == 0 or i == len(self.train_loader) - 1:
@@ -293,29 +297,25 @@ class Trainer(object):
                     self.logger.training_batch_cli_log(
                         epoch_meters, epoch, i, len(self.train_loader))
 
-                # training batch ends
                 start_data_loading = time.time()
 
-            # Set the learning rate
+            # Step the LR scheduler, or halve the LR every 40 epochs if FIXED
             if self.scheduler is not None:
                 self.scheduler.step(epoch)
             else:
-                # Set the learning rate
                 if epoch % 40 == 0:
                     self.optimizer.param_groups[0]['lr'] *= 0.5
 
-            # Perform eval
             with torch.no_grad():
                 top1avg = self.eval_model(epoch)
 
-            # checkpoint
             if top1avg >= self.best_val_acc and not self.args.dry_run:
                 self.best_val_acc = top1avg
                 self.checkpoint_best(epoch, "best.tar")
             elif not self.args.dry_run:
                 self.checkpoint_best(epoch, "checkpoint.tar")
 
-        # training ends
+        # Optionally export the best checkpoint to ONNX after training
         if not self.args.dry_run:
             best_path = os.path.join(self.checkpoints_dir_path, "best.tar")
             if self.args.export_qonnx or self.args.export_qonnx:
@@ -330,7 +330,6 @@ class Trainer(object):
     def eval_model(self, epoch=None):
         eval_meters = EvalEpochMeters()
 
-        # switch to evaluate mode
         self.model.eval()
         self.criterion.eval()
 
@@ -342,7 +341,7 @@ class Trainer(object):
             input = input.to(self.device, non_blocking=True)
             target = target.to(self.device, non_blocking=True)
 
-            # for hingeloss only
+            # SqrHingeLoss requires one-hot +-1 encoded targets
             if isinstance(self.criterion, SqrHingeLoss):
                 target = target.unsqueeze(1)
                 target_onehot = torch.Tensor(target.size(0), self.num_classes).to(
@@ -354,14 +353,10 @@ class Trainer(object):
             else:
                 target_var = target
 
-            # compute output
             output = self.model(input)
-
-            # measure model elapsed time
             eval_meters.model_time.update(time.time() - end)
             end = time.time()
 
-            # compute loss
             loss = self.criterion(output, target_var)
             eval_meters.loss_time.update(time.time() - end)
 
@@ -374,17 +369,18 @@ class Trainer(object):
             eval_meters.top1.update(prec1.item(), input.size(0))
             eval_meters.top5.update(prec5.item(), input.size(0))
 
-            # Eval batch ends
             self.logger.eval_batch_cli_log(eval_meters, i, len(self.test_loader))
 
         return eval_meters.top1.avg
 
+    # Export the model to ONNX
     def export_onnx(self, onnx_type):
         name = self.args.network.lower()
         path = os.path.join(self.output_onnx_path, name)
-        model = self.to_cpu(self.model)  # Switch to CPU for ONNX export
+        model = self.to_cpu(self.model)
         training_state = model.training
         model.eval()
+
         if onnx_type == "qonnx":
             logstr = "QONNX"
             export_qonnx(model, self.train_loader.dataset[0][0].unsqueeze(0), path)
@@ -395,6 +391,7 @@ class Trainer(object):
         else:
             self.logger.error(f"Unknown ONNX export format: {onnx_type}, expected qonnx or qcdq")
             exit(1)
+
         with open(path, "rb") as f:
             bytes = f.read()
             readable_hash = sha256(bytes).hexdigest()[:8]

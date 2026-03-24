@@ -1,3 +1,8 @@
+# tensorNorm.py
+# Normalisation layer that operates over the entire output tensor
+# (single shared mean/variance), used as the final layer of CNV to
+# stabilise logits before computing the squared hinge loss.
+
 import torch
 import torch.nn as nn
 import torch.nn.init as init
@@ -10,8 +15,12 @@ class TensorNorm(nn.Module):
 
         self.eps = eps
         self.momentum = momentum
+
+        # Learnable affine parameters (scalar, shared across the whole tensor)
         self.weight = nn.Parameter(torch.rand(1))
         self.bias = nn.Parameter(torch.rand(1))
+
+        # Non-learnable running statistics updated during training
         self.register_buffer('running_mean', torch.zeros(1))
         self.register_buffer('running_var', torch.ones(1))
         self.reset_running_stats()
@@ -27,10 +36,9 @@ class TensorNorm(nn.Module):
             mean = x.mean()
             unbias_var = x.var(unbiased=True)
             biased_var = x.var(unbiased=False)
-            self.running_mean = (1 -
-                                 self.momentum) * self.running_mean + self.momentum * mean.detach()
-            self.running_var = (
-                1 - self.momentum) * self.running_var + self.momentum * unbias_var.detach()
+            # Update exponential moving averages
+            self.running_mean = (1 - self.momentum) * self.running_mean + self.momentum * mean.detach()
+            self.running_var = (1 - self.momentum) * self.running_var + self.momentum * unbias_var.detach()
             inv_std = 1 / (biased_var + self.eps).pow(0.5)
             return (x - mean) * inv_std * self.weight + self.bias
         else:
