@@ -315,9 +315,34 @@ We open a Jupyter notebook instance inside the FINN directory with:
 \begin{verbatim}
 ./run-docker.sh notebook
 \end{verbatim}
-With the QONNX model at hand we can view the model graph using Netron:
+(The transformation code was run inside a Jupyter notebook and will be formatted in a cell-like manner)
+
+First some basic imports and config:
 \begin{minted}{python}
-import netron
+from finn.util.basic import make_build_dir
+from finn.util.visualization import showInNetron
+import os
+    
+build_dir = os.environ["FINN_BUILD_DIR"]
+notebook_dir = os.environ['FINN_ROOT'] + "/notebooks"
+model_name = "cnv_w1a1"
+\end{minted}
+
+\begin{minted}{python}
+import torch
+import onnx
+from brevitas.export import export_qonnx
+from qonnx.util.cleanup import cleanup as qonnx_cleanup
+from qonnx.core.modelwrapper import ModelWrapper
+from finn.transformation.qonnx.convert_qonnx_to_finn import ConvertQONNXtoFINN
+from qonnx.transformation.infer_shapes import InferShapes
+from qonnx.transformation.fold_constants import FoldConstants
+from qonnx.transformation.general import GiveReadableTensorNames, GiveUniqueNodeNames, RemoveStaticGraphInputs
+from qonnx.transformation.infer_datatypes import InferDataTypes
+
+print(build_dir)
+export_onnx_path = notebook_dir + "/L46Stuff" + f"/{model_name}_export.onnx"
+showInNetron(export_onnx_path)
 \end{minted}
 \subsection{Evaluating the BNN compared to running on a GPU // Something like this}
 \section{Experiment 2: Impact of quantisation on neural network FPGA performance}
