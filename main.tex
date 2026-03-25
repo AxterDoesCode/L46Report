@@ -562,8 +562,18 @@ showInNetron(build_dir+f"/end2end_{model_name}_streamlined.onnx")
 
 \begin{figure}[H]
     \centering
-    \includegraphics[height=0.88\textheight, keepaspectratio]{Images/Experiment1Graphs/AfterStreamlining1.png}
-    \caption{FINN-ONNX graph after streamlining}
+    \includegraphics[height=0.88\textheight, keepaspectratio]{Images/Experiment1Graphs/split/AfterStreamlining1_p1.png}
+    \caption{FINN-ONNX graph after streamlining (1/3)}
+\end{figure}
+\begin{figure}[H]
+    \centering
+    \includegraphics[height=0.88\textheight, keepaspectratio]{Images/Experiment1Graphs/split/AfterStreamlining1_p2.png}
+    \caption{FINN-ONNX graph after streamlining (2/3)}
+\end{figure}
+\begin{figure}[H]
+    \centering
+    \includegraphics[height=0.88\textheight, keepaspectratio]{Images/Experiment1Graphs/split/AfterStreamlining1_p3.png}
+    \caption{FINN-ONNX graph after streamlining (3/3)}
 \end{figure}
 
 Now we can perform the lowering transformation on the convolution layers
@@ -575,8 +585,23 @@ showInNetron(build_dir+f"/end2end_{model_name}_streamlined.onnx")
 
 \begin{figure}[H]
     \centering
-    \includegraphics[height=0.88\textheight, keepaspectratio]{Images/Experiment1Graphs/AfterStreamlining2.png}
-    \caption{FINN-ONNX graph after lowering}
+    \includegraphics[height=0.88\textheight, keepaspectratio]{Images/Experiment1Graphs/split/AfterStreamlining2_p1.png}
+    \caption{FINN-ONNX graph after lowering (1/4)}
+\end{figure}
+\begin{figure}[H]
+    \centering
+    \includegraphics[height=0.88\textheight, keepaspectratio]{Images/Experiment1Graphs/split/AfterStreamlining2_p2.png}
+    \caption{FINN-ONNX graph after lowering (2/4)}
+\end{figure}
+\begin{figure}[H]
+    \centering
+    \includegraphics[height=0.88\textheight, keepaspectratio]{Images/Experiment1Graphs/split/AfterStreamlining2_p3.png}
+    \caption{FINN-ONNX graph after lowering (3/4)}
+\end{figure}
+\begin{figure}[H]
+    \centering
+    \includegraphics[height=0.88\textheight, keepaspectratio]{Images/Experiment1Graphs/split/AfterStreamlining2_p4.png}
+    \caption{FINN-ONNX graph after lowering (4/4)}
 \end{figure}
 
 Next we apply the transformations \verb+MakeMaxPoolNHWC+ and \verb+AbsorbTransposeIntoMultiThreshold+, these transformations converts the data layout of the FINN-ONNX nodes back into ONNX-like data layouts.
@@ -591,8 +616,23 @@ showInNetron(build_dir+f"/end2end_{model_name}_streamlined.onnx")
 
 \begin{figure}[H]
     \centering
-    \includegraphics[height=0.88\textheight, keepaspectratio]{Images/Experiment1Graphs/AfterStreamlining3.png}
-    \caption{FINN-ONNX graph after streamlining}
+    \includegraphics[height=0.88\textheight, keepaspectratio]{Images/Experiment1Graphs/split/AfterStreamlining3_p1.png}
+    \caption{FINN-ONNX graph after NHWC conversion (1/4)}
+\end{figure}
+\begin{figure}[H]
+    \centering
+    \includegraphics[height=0.88\textheight, keepaspectratio]{Images/Experiment1Graphs/split/AfterStreamlining3_p2.png}
+    \caption{FINN-ONNX graph after NHWC conversion (2/4)}
+\end{figure}
+\begin{figure}[H]
+    \centering
+    \includegraphics[height=0.88\textheight, keepaspectratio]{Images/Experiment1Graphs/split/AfterStreamlining3_p3.png}
+    \caption{FINN-ONNX graph after NHWC conversion (3/4)}
+\end{figure}
+\begin{figure}[H]
+    \centering
+    \includegraphics[height=0.88\textheight, keepaspectratio]{Images/Experiment1Graphs/split/AfterStreamlining3_p4.png}
+    \caption{FINN-ONNX graph after NHWC conversion (4/4)}
 \end{figure}
 
 \begin{jupytercell}
@@ -603,8 +643,28 @@ showInNetron(build_dir+f"/end2end_{model_name}_streamlined.onnx")
 
 \begin{figure}[H]
     \centering
-    \includegraphics[height=0.88\textheight, keepaspectratio]{Images/Experiment1Graphs/AfterStreamlining5.png}
-    \caption{FINN-ONNX graph after streamlining}
+    \includegraphics[height=0.88\textheight, keepaspectratio]{Images/Experiment1Graphs/split/AfterStreamlining5_p1.png}
+    \caption{FINN-ONNX graph after converting matmul to XnorPopcount (1/5)}
+\end{figure}
+\begin{figure}[H]
+    \centering
+    \includegraphics[height=0.88\textheight, keepaspectratio]{Images/Experiment1Graphs/split/AfterStreamlining5_p2.png}
+    \caption{FINN-ONNX graph after converting matmul to XnorPopcount (2/5)}
+\end{figure}
+\begin{figure}[H]
+    \centering
+    \includegraphics[height=0.88\textheight, keepaspectratio]{Images/Experiment1Graphs/split/AfterStreamlining5_p3.png}
+    \caption{FINN-ONNX graph after converting matmul to XnorPopcount (3/5)}
+\end{figure}
+\begin{figure}[H]
+    \centering
+    \includegraphics[height=0.88\textheight, keepaspectratio]{Images/Experiment1Graphs/split/AfterStreamlining5_p4.png}
+    \caption{FINN-ONNX graph after converting matmul to XnorPopcount ( (4/5)}
+\end{figure}
+\begin{figure}[H]
+    \centering
+    \includegraphics[height=0.88\textheight, keepaspectratio]{Images/Experiment1Graphs/split/AfterStreamlining5_p5.png}
+    \caption{FINN-ONNX graph after converting matmul to XnorPopcount ( (5/5)}
 \end{figure}
 
 \begin{jupytercell}
@@ -615,8 +675,23 @@ showInNetron(build_dir+f"/end2end_{model_name}_streamlined.onnx")
 
 \begin{figure}[H]
     \centering
-    \includegraphics[height=0.88\textheight, keepaspectratio]{Images/Experiment1Graphs/AfterStreamlining5.png}
-    \caption{FINN-ONNX graph after streamlining}
+    \includegraphics[height=0.88\textheight, keepaspectratio]{Images/Experiment1Graphs/split/AfterStreamlining6_p1.png}
+    \caption{FINN-ONNX graph after streamlining again (1/4)}
+\end{figure}
+\begin{figure}[H]
+    \centering
+    \includegraphics[height=0.88\textheight, keepaspectratio]{Images/Experiment1Graphs/split/AfterStreamlining6_p2.png}
+    \caption{FINN-ONNX graph after streamlining again (2/4)}
+\end{figure}
+\begin{figure}[H]
+    \centering
+    \includegraphics[height=0.88\textheight, keepaspectratio]{Images/Experiment1Graphs/split/AfterStreamlining6_p3.png}
+    \caption{FINN-ONNX graph after streamlining again (3/4)}
+\end{figure}
+\begin{figure}[H]
+    \centering
+    \includegraphics[height=0.88\textheight, keepaspectratio]{Images/Experiment1Graphs/split/AfterStreamlining6_p4.png}
+    \caption{FINN-ONNX graph after streamlining again (4/4)}
 \end{figure}
 
 \begin{jupytercell}
@@ -627,8 +702,23 @@ model.save(build_dir + f"/end2end_{model_name}_streamlined.onnx")
 \end{jupytercell}
 \begin{figure}[H]
     \centering
-    \includegraphics[height=0.88\textheight, keepaspectratio]{Images/Experiment1Graphs/AfterStreamlining7.png}
-    \caption{FINN-ONNX graph after streamlining}
+    \includegraphics[height=0.88\textheight, keepaspectratio]{Images/Experiment1Graphs/split/AfterStreamlining7_p1.png}
+    \caption{FINN-ONNX graph after streamlining tidy-up (1/4)}
+\end{figure}
+\begin{figure}[H]
+    \centering
+    \includegraphics[height=0.88\textheight, keepaspectratio]{Images/Experiment1Graphs/split/AfterStreamlining7_p2.png}
+    \caption{FINN-ONNX graph after streamlining tidy-up (2/4)}
+\end{figure}
+\begin{figure}[H]
+    \centering
+    \includegraphics[height=0.88\textheight, keepaspectratio]{Images/Experiment1Graphs/split/AfterStreamlining7_p3.png}
+    \caption{FINN-ONNX graph after streamlining tidy-up (3/4)}
+\end{figure}
+\begin{figure}[H]
+    \centering
+    \includegraphics[height=0.88\textheight, keepaspectratio]{Images/Experiment1Graphs/split/AfterStreamlining7_p4.png}
+    \caption{FINN-ONNX graph after streamlining tidy-up (4/4)}
 \end{figure}
 \subsection{Evaluating the BNN compared to running on a GPU // Something like this}
 \section{Experiment 2: Impact of quantisation on neural network FPGA performance}
