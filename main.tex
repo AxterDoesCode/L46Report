@@ -882,8 +882,18 @@ showInNetron(postsynth_layers)
 
 \begin{figure}[H]
     \centering
-    \includegraphics[height=0.88\textheight, keepaspectratio]{Images/Experiment1Graphs/AfterSynthesis.png}
-    \caption{Neural Network graph after synthesis}
+    \includegraphics[height=0.88\textheight, keepaspectratio]{Images/Experiment1Graphs/split/AfterSynthesis_p1.png}
+    \caption{Neural Network graph after synthesis (1/3)}
+\end{figure}
+\begin{figure}[H]
+    \centering
+    \includegraphics[height=0.88\textheight, keepaspectratio]{Images/Experiment1Graphs/split/AfterSynthesis_p2.png}
+    \caption{Neural Network graph after synthesis (2/3)}
+\end{figure}
+\begin{figure}[H]
+    \centering
+    \includegraphics[height=0.88\textheight, keepaspectratio]{Images/Experiment1Graphs/split/AfterSynthesis_p3.png}
+    \caption{Neural Network graph after synthesis (3/3)}
 \end{figure}
 
 % AlexNote TODO: Talk about synthesis transformations briefly
@@ -900,6 +910,7 @@ model.model.metadata_props
 \end{verbatim}
 
 Having a look at the report of the implementation run of the project we see various utilization metrics:
+{\small
 \begin{verbatim}
 Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.
 -------------------------------------------------------------------------------------------------------------------
@@ -970,7 +981,10 @@ Table of Contents
 
 2. Slice Logic Distribution
 ---------------------------
-
+\end{verbatim}
+}
+{\footnotesize
+\begin{verbatim}
 +--------------------------------------------+-------+-------+------------+-----------+-------+
 |                  Site Type                 |  Used | Fixed | Prohibited | Available | Util% |
 +--------------------------------------------+-------+-------+------------+-----------+-------+
@@ -998,6 +1012,10 @@ Table of Contents
 | Unique Control Sets                        |   998 |       |          0 |     13300 |  7.50 |
 +--------------------------------------------+-------+-------+------------+-----------+-------+
 * * Note: Available Control Sets calculated as Slice * 1, Review the Control Sets Report for more information regarding control sets.
+\end{verbatim}
+}
+{\small
+\begin{verbatim}
 
 
 3. Memory
@@ -1136,7 +1154,34 @@ Table of Contents
 | top_StreamingDataflowPartition_1_0 |    1 |
 +------------------------------------+------+
 \end{verbatim}
+}
 
+We can now generate a zip file which contains the model bitstream and associated driver:
+
+\begin{jupytercell}
+from shutil import copy
+from distutils.dir_util import copy_tree
+from shutil import make_archive
+
+# create directory for deployment files
+deployment_dir = make_build_dir(prefix="pynq_deployment_")
+model.set_metadata_prop("pynq_deployment_dir", deployment_dir)
+
+# get and copy necessary files
+# .bit and .hwh file
+bitfile = model.get_metadata_prop("bitfile")
+hwh_file = model.get_metadata_prop("hw_handoff")
+deploy_files = [bitfile, hwh_file]
+
+for dfile in deploy_files:
+    if dfile is not None:
+        copy(dfile, deployment_dir)
+
+# driver.py and python libraries
+pynq_driver_dir = model.get_metadata_prop("pynq_driver_dir")
+copy_tree(pynq_driver_dir, deployment_dir)
+make_archive('deploy-on-pynq-cnv-w1a1-minimal', 'zip', deployment_dir)
+\end{jupytercell}
 
 \subsection{Evaluating the BNN compared to running on a GPU // Something like this}
 \section{Experiment 2: Impact of quantisation on neural network FPGA performance}
