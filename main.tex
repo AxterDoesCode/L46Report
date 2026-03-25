@@ -291,7 +291,7 @@ In addition, quantisation-aware training requires careful handling of value rang
 Batch normalisation is essential after each layer to stabilise training, as quantized networks are generally more sensitive to changes in data distribution.
 
 The model architecture consists of a sequence of quantised convolutional layers for feature extraction, followed by fully connected layers for classification. 
-The full implementation of the model is shown below.
+The full implementation of the model is shown below, the training code and transformation ordering is largely based on the Xilinx integration test suite, which AMD recommends to use as a template.
 \jupyterinput{./Code/model.py}
 The train script is split into two parts: \texttt{trainer.py} which exposes a trainer class, and \texttt{train.py} which parses in arguments and is called to actually train a model.
 \jupyterinput{./Code/trainer.py}
@@ -456,6 +456,122 @@ For example, the first \verb+BipolarQuant+ node in Fig~\ref{fig:InitialGraph} ha
 From this netron representation, it is clear now that the model consists of an initial \verb+MultiThreshold+ layer which quantizes float input into 8-bit, followed by repeating convolution-convolution-maxpool layer pattern with 3x3 filters for feature extraction. Finally followed by fully-connected layers for classification.
 Transforming the network into a sequential set of nodes is useful for FPGA deployment as it reduces the amount of hardware resources used to implement the network.
 Additionally it allows for easier implementation of selective parallelism, which is explored more in \ref{Experiment3}.
+
+Next we add some preprocessing and postprocessing steps to the model.
+For preprocessing we want to divide the 8-bit input data by 255 so that the inputs to the network are bounded between 0 and 1.
+This is achieved by creating a QONNX node using the \verb+ToTensor()+ function, converting it to FINN-ONNX and merging the models together.
+
+For postprocessing we want to take the output of the network and return the index of of the image category with the highest probability, this should return an index from 0-9 as the model is based on CIFAR-10.
+This node can be directly inserted at the end of the model via a transformation with \verb+InsertTopK()+ without having to do the intermediate representation transformations as performed in pre-processing.
+\begin{jupytercell}
+from finn.util.pytorch import ToTensor
+from qonnx.transformation.merge_onnx_models import MergeONNXModels
+from qonnx.core.datatype import DataType
+from qonnx.transformation.insert_topk import InsertTopK
+from qonnx.transformation.infer_datatypes import InferDataTypes
+
+model = ModelWrapper(build_dir+f"/end2end_{model_name}_tidy.onnx")
+global_inp_name = model.graph.input[0].name
+ishape = model.get_tensor_shape(global_inp_name)
+# preprocessing: torchvision's ToTensor divides uint8 inputs by 255
+totensor_pyt = ToTensor()
+chkpt_preproc_name = build_dir+f"/end2end_{model_name}_preproc.onnx"
+export_qonnx(totensor_pyt, torch.randn(ishape), chkpt_preproc_name)
+qonnx_cleanup(chkpt_preproc_name, out_file=chkpt_preproc_name)
+pre_model = ModelWrapper(chkpt_preproc_name)
+pre_model = pre_model.transform(ConvertQONNXtoFINN())
+
+# join preprocessing and core model
+model = model.transform(MergeONNXModels(pre_model))
+# add input quantization annotation: UINT8 for all BNN-PYNQ models
+global_inp_name = model.graph.input[0].name
+model.set_tensor_datatype(global_inp_name, DataType["UINT8"])
+
+# postprocessing: insert Top-1 node at the end
+model = model.transform(InsertTopK(k=1))
+chkpt_name = build_dir+f"/end2end_{model_name}_pre_post.onnx"
+# tidy-up again
+model = model.transform(InferShapes())
+model = model.transform(FoldConstants())
+model = model.transform(GiveUniqueNodeNames())
+model = model.transform(GiveReadableTensorNames())
+model = model.transform(InferDataTypes())
+model = model.transform(RemoveStaticGraphInputs())
+model.save(chkpt_name)
+\end{jupytercell}
+\begin{jupytercell}
+showInNetron(build_dir+f"/end2end_{model_name}_pre_post.onnx")
+\end{jupytercell}
+\begin{figure}[H]
+    \centering
+    \includegraphics[height=0.2\textheight, keepaspectratio]{Images/Experiment1Graphs/AfterPreProcessingStartNode.png}
+    \caption{FINN-ONNX graph preprocessing node}
+\end{figure}
+\begin{figure}[H]
+    \centering
+    \includegraphics[height=0.2\textheight, keepaspectratio]{Images/Experiment1Graphs/AfterPostProcessing.png}
+    \caption{FINN-ONNX graph postprocessing node}
+\end{figure}
+Looking at the start of the graph, a \verb+Div+ node that we merged in has been added for input preprocessing.
+At the tail of the graph you can observe a \verb+TopK+ node which returns the index for the most likely output.
+
+Now the network needs to be processed further for hardware synthesis, we target the convolutional layers next.
+Convolutions in FINN are implemented with convolution lowering, this approach converts convolutional layers into matrix mutiply opeerations, where one of the matrices is generated by a sliding window from the input image.
+Two primitives in the FINN RTL library are the Sliding window unit (SWU) and Matrix Vector Activation Unit (MVAU), the following operations transform the network into ONNX equivalents of these hardware primitives.
+
+First we perform some small transformations and \verb+streamline+ the network:
+\begin{jupytercell}
+from finn.transformation.streamline import Streamline
+from qonnx.transformation.lower_convs_to_matmul import LowerConvsToMatMul
+from qonnx.transformation.bipolar_to_xnor import ConvertBipolarMatMulToXnorPopcount
+import finn.transformation.streamline.absorb as absorb
+from finn.transformation.streamline.reorder import MakeMaxPoolNHWC, MoveScalarLinearPastInvariants
+from qonnx.transformation.infer_data_layouts import InferDataLayouts
+from qonnx.transformation.general import RemoveUnusedTensors
+
+model = ModelWrapper(build_dir + f"/end2end_{model_name}_pre_post.onnx")
+model = model.transform(absorb.AbsorbSignBiasIntoMultiThreshold())
+model = model.transform(MoveScalarLinearPastInvariants())
+model = model.transform(Streamline())
+model.save(build_dir + f"/end2end_{model_name}_streamlined.onnx")
+showInNetron(build_dir+f"/end2end_{model_name}_streamlined.onnx")
+\end{jupytercell}
+
+Now we can perform the lowering transformation on the convolution layers
+\begin{jupytercell}
+model = model.transform(LowerConvsToMatMul())
+model.save(build_dir + f"/end2end_{model_name}_streamlined.onnx")
+showInNetron(build_dir+f"/end2end_{model_name}_streamlined.onnx")
+\end{jupytercell}
+
+Next we apply the transformations \verb+MakeMaxPoolNHWC+ and \verb+AbsorbTransposeIntoMultiThreshold+, these transformations converts the data layout of the FINN-ONNX nodes back into ONNX-like data layouts.
+Specifically, the tensor dimensions are reordered as NCHW where (N: Batch,  H: Height, W: Width, C: Channels). The reason for doing this is because the underlying RTL libraries which FINN maps the model to are also structured as NHWC.
+
+\begin{jupytercell}
+model = model.transform(MakeMaxPoolNHWC())
+model = model.transform(absorb.AbsorbTransposeIntoMultiThreshold())
+model.save(build_dir + f"/end2end_{model_name}_streamlined.onnx")
+showInNetron(build_dir+f"/end2end_{model_name}_streamlined.onnx")
+\end{jupytercell}
+
+\begin{jupytercell}
+model = model.transform(ConvertBipolarMatMulToXnorPopcount())
+model.save(build_dir + f"/end2end_{model_name}_streamlined.onnx")
+showInNetron(build_dir+f"/end2end_{model_name}_streamlined.onnx")
+\end{jupytercell}
+
+\begin{jupytercell}
+model = model.transform(Streamline())
+model.save(build_dir + f"/end2end_{model_name}_streamlined.onnx")
+showInNetron(build_dir+f"/end2end_{model_name}_streamlined.onnx")
+\end{jupytercell}
+
+\begin{jupytercell}
+model = model.transform(absorb.AbsorbScalarMulAddIntoTopK())
+model = model.transform(InferDataLayouts())
+model = model.transform(RemoveUnusedTensors())
+model.save(build_dir + f"/end2end_{model_name}_streamlined.onnx")
+\end{jupytercell}
 \subsection{Evaluating the BNN compared to running on a GPU // Something like this}
 \section{Experiment 2: Impact of quantisation on neural network FPGA performance}
 \section{Experiment 3: Investigating parallelism in FPGA QNN performance}\label{Experiment3}
