@@ -546,12 +546,50 @@ First we perform some small transformations and \verb+Streamline+ the network:
 The goal of \verb+Streamline+ is to eliminate floating point operations by moving and collapsing them into one operation.
 This becomes clearer when we look at the sub transformations involved in the \verb+Streamline+ transformation.
 
-AlexNote TODO: Need to add and run this code to bnntrainhw
 \begin{jupytercell}
+from finn.util.visualization import showSrc
 from finn.transformation.streamline import Streamline
 showSrc(Streamline)
 \end{jupytercell}
+\begin{verbatim}
+class Streamline(Transformation):
+    """Apply the streamlining transform, see arXiv:1709.04060."""
 
+    def apply(self, model):
+        streamline_transformations = [
+            ConvertSubToAdd(),
+            ConvertDivToMul(),
+            BatchNormToAffine(),
+            ConvertSignToThres(),
+            MoveMulPastMaxPool(),
+            MoveScalarLinearPastInvariants(),
+            AbsorbSignBiasIntoMultiThreshold(),
+            MoveAddPastMul(),
+            MoveScalarAddPastMatMul(),
+            MoveAddPastConv(),
+            MoveScalarMulPastMatMul(),
+            MoveScalarMulPastConv(),
+            MoveAddPastMul(),
+            CollapseRepeatedAdd(),
+            CollapseRepeatedMul(),
+            MoveMulPastMaxPool(),
+            AbsorbAddIntoMultiThreshold(),
+            FactorOutMulSignMagnitude(),
+            AbsorbMulIntoMultiThreshold(),
+            Absorb1BitMulIntoMatMul(),
+            Absorb1BitMulIntoConv(),
+            RoundAndClipThresholds(),
+        ]
+        for trn in streamline_transformations:
+            model = model.transform(trn)
+            model = model.transform(RemoveIdentityOps())
+            model = model.transform(GiveUniqueNodeNames())
+            model = model.transform(GiveReadableTensorNames())
+            model = model.transform(InferDataTypes())
+        return (model, False)
+\end{verbatim}
+% AlexNote: Describe this better
+The FINN \verb+Streamline+ transformation performs the streamlining operation described by \cite{}.
 \begin{jupytercell}
 from qonnx.transformation.lower_convs_to_matmul import LowerConvsToMatMul
 from qonnx.transformation.bipolar_to_xnor import ConvertBipolarMatMulToXnorPopcount
