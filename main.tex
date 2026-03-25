@@ -393,38 +393,8 @@ With this we can visualise the QONNX graph generated from training:
     \caption{Initial ONNX graph before transformations (4/4)}
 \end{figure}
 Next we convert the model from QONNX to FINN-ONNX, operations provided by the FINN library only work on this intermediate representation of models:
-\begin{jupytercell}
-qonnx_cleanup(export_onnx_path, out_file=export_onnx_path)
-model = ModelWrapper(export_onnx_path)
-model = model.transform(ConvertQONNXtoFINN())
-model.save(build_dir + f"/end2end_{model_name}_FINNONNX.onnx")
-showInNetron(build_dir+f"/end2end_{model_name}_FINNONNX.onnx")
-\end{jupytercell}
-AlexNote TODO: Add the ConvertQONNXtoFINN netron graph here and discuss what it does.
-AlexNote TODO: Did I export the wrong image, looks to be exactly the same as before
-\begin{figure}[H]
-    \centering
-    \includegraphics[height=0.88\textheight, keepaspectratio]{Images/Experiment1Graphs/split/AfterQONNXtoFINN_p1.png}
-    \caption{Model graph after converting from ONNX to FINN-ONNX (1/4)}
-    \label{fig:AfterQONNXtoFINN}
-\end{figure}
-\begin{figure}[H]
-    \centering
-    \includegraphics[height=0.88\textheight, keepaspectratio]{Images/Experiment1Graphs/split/AfterQONNXtoFINN_p2.png}
-    \caption{Model graph after converting from ONNX to FINN-ONNX (2/4)}
-\end{figure}
-\begin{figure}[H]
-    \centering
-    \includegraphics[height=0.88\textheight, keepaspectratio]{Images/Experiment1Graphs/split/AfterQONNXtoFINN_p3.png}
-    \caption{Model graph after converting from ONNX to FINN-ONNX (3/4)}
-\end{figure}
-\begin{figure}[H]
-    \centering
-    \includegraphics[height=0.88\textheight, keepaspectratio]{Images/Experiment1Graphs/split/AfterQONNXtoFINN_p4.png}
-    \caption{Model graph after converting from ONNX to FINN-ONNX (4/4)}
-\end{figure}
 
-We perform some basic transformations to prepare the graph for upcoming transformations, these include:
+We also perform some basic transformations to prepare the graph for upcoming transformations, these include:
 \begin{itemize}
     \item \verb+GiveUniqueNodeNames+
     \item \verb+GiveReadableTensorNames+
@@ -440,9 +410,10 @@ These four transformations do not affect the structure of the graph.
 The remaining two transformations modify the structure of the graph, \verb+FoldConstants+ identifies nodes with constant inputs and calculates the output, then for the following node the inputs are set as constant-only inputs and the previous node is deleted.
 \verb+FoldConstants+ is useful for FPGA synthesis as it reduces the number of nodes (blocks) that need to be stitched together in the final design.
 The other mutating basic transformation is \verb+RemoveStaticGraphInputs+, this transformation removes any top-level graph inputs that already are associated with ONNX initialisers.
-
-Executing this cell transforms the model into Fig~\ref{fig:AfterTidyUp}
 \begin{jupytercell}
+qonnx_cleanup(export_onnx_path, out_file=export_onnx_path)
+model = ModelWrapper(export_onnx_path)
+model = model.transform(ConvertQONNXtoFINN())
 model = model.transform(InferShapes())
 model = model.transform(FoldConstants())
 model = model.transform(GiveUniqueNodeNames())
@@ -589,7 +560,7 @@ class Streamline(Transformation):
         return (model, False)
 \end{verbatim}
 % AlexNote: Describe this better
-The FINN \verb+Streamline+ transformation performs the streamlining operation described by \cite{}.
+The FINN \verb+Streamline+ transformation performs the streamlining operation described by \cite{umurogluStreamlinedDeploymentQuantized2018}.
 \begin{jupytercell}
 from qonnx.transformation.lower_convs_to_matmul import LowerConvsToMatMul
 from qonnx.transformation.bipolar_to_xnor import ConvertBipolarMatMulToXnorPopcount
@@ -650,6 +621,8 @@ showInNetron(build_dir+f"/end2end_{model_name}_streamlined.onnx")
     \caption{FINN-ONNX graph after lowering (4/4)}
 \end{figure}
 
+We can observe that the lowering transformation \verb+LowerConvsToMatMul+ has replaced the convolutions with sequences of \verb+Im2Col+ and \verb+MatMul+, \verb+Im2Col+ is a custom FINN-ONNX node which later is picked up by the hardware partitioning step to represent a SWU.
+
 Next we apply the transformations \verb+MakeMaxPoolNHWC+ and \verb+AbsorbTransposeIntoMultiThreshold+, these transformations converts the data layout of the FINN-ONNX nodes back into ONNX-like data layouts.
 Specifically, the tensor dimensions are reordered as NCHW where (N: Batch,  H: Height, W: Width, C: Channels). The reason for doing this is because the underlying RTL libraries which FINN maps the model to are also structured as NHWC.
 
@@ -680,7 +653,10 @@ showInNetron(build_dir+f"/end2end_{model_name}_streamlined.onnx")
     \includegraphics[height=0.88\textheight, keepaspectratio]{Images/Experiment1Graphs/split/AfterStreamlining3_p4.png}
     \caption{FINN-ONNX graph after NHWC conversion (4/4)}
 \end{figure}
+Now the data layout of the model matches the HLS data layout we want to target.
 
+Since the network has bipolar (-1, 1) precison, the bipolar matrix multiplcations can instead be represented as XNOR-popcount operations. 
+This maps more efficiently to hardware than MVAUs, utilising less lookup tables (LUTs) and block ram (BRAM).
 \begin{jupytercell}
 model = model.transform(ConvertBipolarMatMulToXnorPopcount())
 model.save(build_dir + f"/end2end_{model_name}_streamlined.onnx")
@@ -712,7 +688,9 @@ showInNetron(build_dir+f"/end2end_{model_name}_streamlined.onnx")
     \includegraphics[height=0.88\textheight, keepaspectratio]{Images/Experiment1Graphs/split/AfterStreamlining5_p5.png}
     \caption{FINN-ONNX graph after converting matmul to XnorPopcount ( (5/5)}
 \end{figure}
+We can see that almost all of the MatMuls can be converted to XNOR-popcount nodes, reducing the hardware footprint of the model.
 
+The previous transformations introduced operations (\verb+Add+, \verb+Mul+) that we can collapse into thresholds again by using \verb+Streamline+ again.
 \begin{jupytercell}
 model = model.transform(Streamline())
 model.save(build_dir + f"/end2end_{model_name}_streamlined.onnx")
@@ -740,6 +718,8 @@ showInNetron(build_dir+f"/end2end_{model_name}_streamlined.onnx")
     \caption{FINN-ONNX graph after streamlining again (4/4)}
 \end{figure}
 
+Notice that the streamline operation couldn't collapse the final \verb+Add+ and \verb+Mul+ operations, we can absorb them into the final \verb+TopK+ node with \verb+AbsorbScalarMulAddIntoTopK+.
+
 \begin{jupytercell}
 model = model.transform(absorb.AbsorbScalarMulAddIntoTopK())
 model = model.transform(InferDataLayouts())
@@ -748,24 +728,129 @@ model.save(build_dir + f"/end2end_{model_name}_streamlined.onnx")
 \end{jupytercell}
 \begin{figure}[H]
     \centering
-    \includegraphics[height=0.88\textheight, keepaspectratio]{Images/Experiment1Graphs/split/AfterStreamlining7_p1.png}
-    \caption{FINN-ONNX graph after streamlining tidy-up (1/4)}
-\end{figure}
-\begin{figure}[H]
-    \centering
-    \includegraphics[height=0.88\textheight, keepaspectratio]{Images/Experiment1Graphs/split/AfterStreamlining7_p2.png}
-    \caption{FINN-ONNX graph after streamlining tidy-up (2/4)}
-\end{figure}
-\begin{figure}[H]
-    \centering
-    \includegraphics[height=0.88\textheight, keepaspectratio]{Images/Experiment1Graphs/split/AfterStreamlining7_p3.png}
-    \caption{FINN-ONNX graph after streamlining tidy-up (3/4)}
-\end{figure}
-\begin{figure}[H]
-    \centering
     \includegraphics[height=0.88\textheight, keepaspectratio]{Images/Experiment1Graphs/split/AfterStreamlining7_p4.png}
-    \caption{FINN-ONNX graph after streamlining tidy-up (4/4)}
+    \caption{FINN-ONNX graph tail after absorbing muladd into topK}
 \end{figure}
+The next step is to transform the model into FINN-HW layers, the way this is performed in a FINN transformation flow is to first convert layers that can directly be put on the FPGA into their hardware (RTL or HLS) equivalents.
+These layers area then separated into a streaming dataflow partition and specialised with parameterized HLS variants.
+This results of this transformation is easier to see when visualised:
+\begin{jupytercell}
+from finn.util.basic import pynq_part_map
+pynq_board = "Pynq-Z1"
+fpga_part = pynq_part_map[pynq_board]
+target_clk_ns = 10
+
+import finn.transformation.fpgadataflow.convert_to_hw_layers as to_hw
+from finn.transformation.fpgadataflow.create_dataflow_partition import (
+    CreateDataflowPartition,
+)
+from finn.transformation.move_reshape import RemoveCNVtoFCFlatten
+from finn.transformation.fpgadataflow.specialize_layers import SpecializeLayers
+from qonnx.custom_op.registry import getCustomOp
+from qonnx.transformation.infer_data_layouts import InferDataLayouts
+
+model = ModelWrapper(build_dir + f"/end2end_{model_name}_streamlined.onnx")
+model = model.transform(to_hw.InferBinaryMatrixVectorActivation())
+model = model.transform(to_hw.InferQuantizedMatrixVectorActivation())
+# TopK to LabelSelect
+model = model.transform(to_hw.InferLabelSelectLayer())
+# input quantization (if any) to standalone thresholding
+model = model.transform(to_hw.InferThresholdingLayer())
+model = model.transform(to_hw.InferConvInpGen())
+model = model.transform(to_hw.InferStreamingMaxPool())
+# get rid of Reshape(-1, 1) operation between hw nodes
+model = model.transform(RemoveCNVtoFCFlatten())
+# get rid of Tranpose -> Tranpose identity seq
+model = model.transform(absorb.AbsorbConsecutiveTransposes())
+model = model.transform(GiveUniqueNodeNames())
+# infer tensor data layouts
+model = model.transform(InferDataLayouts())
+parent_model = model.transform(CreateDataflowPartition())
+parent_model.save(build_dir + f"/end2end_{model_name}_dataflow_parent.onnx")
+sdp_node = parent_model.get_nodes_by_op_type("StreamingDataflowPartition")[0]
+sdp_node = getCustomOp(sdp_node)
+dataflow_model_filename = sdp_node.get_nodeattr("model")
+# save the dataflow partition with a different name for easier access
+# and specialize the layers to HLS variants
+dataflow_model = ModelWrapper(dataflow_model_filename)
+dataflow_model = dataflow_model.transform(SpecializeLayers(fpga_part))
+dataflow_model.save(build_dir + f"/end2end_{model_name}_dataflow_model.onnx")
+\end{jupytercell}
+
+\begin{jupytercell}
+showInNetron(build_dir + f"/end2end_{model_name}_dataflow_parent.onnx")
+\end{jupytercell}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[height=0.2\textheight, keepaspectratio]{Images/Experiment1Graphs/AfterSplittingDataflowParent.png}
+    \caption{Neural Network graph after splitting dataflow model}
+\end{figure}
+
+\begin{jupytercell}
+showInNetron(build_dir + f"/end2end_{model_name}_dataflow_model.onnx")
+\end{jupytercell}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[height=0.88\textheight, keepaspectratio]{Images/Experiment1Graphs/AfterSplittingDataflowModel.png}
+    \caption{Neural Network graph after splitting dataflow model}
+\end{figure}
+
+As seen above, the model has been separated into a dataflow partition and a parent model which contains the dataflow partition.
+The dataflow partition contains nodes which are implementable with HLS or RTL, whereas the parent model contains the dataflow partition and any other layers which don't have a hardware equivalent.
+In order to create a bitstream to configure the FPGA PL, we operate only on the dataflow partition.
+
+The \verb+InferBinaryMatrixVectorActivation+ transform merges pairs of \verb+XnorPopcount+ layers into a single MVAU and with this we get the added benefit of being able to absorb any following \verb+MultiThreshold+ layers into the MVAU.
+The \verb+InferThresholdingLayer+ converts \verb+MultiThreshold+ layers into a single hardware equivalent thresholding HLS layer \verb+Thresholing_rtl+.
+The \verb+InferConvInpGen+ transform converts the sliding window Im2Col layers into \verb+ConvolutionInputGenerator+ layers.
+The \verb+InferStreamingMaxPool+ transform converts the \verb+MaxPoolNHWC+ to \verb+StreamingMaxPool+ layers.
+Finally we perform some tidy up operations which absorb consecutive transposes and useless reshapes between nodes
+
+In an ideal world, an input should go through each layer of the model pipeline with a cycle overhead of 1, however this requires massive hardware overhead and can't fit on hardware resource constrained devices.
+A strength of FINN is the ability to fold the model, folding in FINN is the ability to adjust the throughput of certain layers.
+A folded design reuses a smaller number of compute units across time, which is slower than the ideal scenario but massively reduces hardware overhead, making these neural networks synthsisable to FPGA.
+This is achieved primarily by adjusting Processing Elements (PE) and Single Instruction Multiple Data (SIMD) channels of each matrix-vector layer in a network.
+
+We apply the following folding factors to the model:
+\begin{jupytercell}
+def fold_cnv(model):
+    fc_layers = model.get_nodes_by_op_type("MVAU_hls")
+    # each tuple is (PE, SIMD) for a layer
+    folding = [
+        (16, 3),
+        (32, 32),
+        (16, 32),
+        (16, 32),
+        (4, 32),
+        (1, 32),
+        (1, 4),
+        (1, 8),
+        (5, 1),
+    ]
+    for fcl, (pe, simd) in zip(fc_layers, folding):
+        fcl_inst = getCustomOp(fcl)
+        fcl_inst.set_nodeattr("PE", pe)
+        fcl_inst.set_nodeattr("SIMD", simd)
+        fcl_inst.set_nodeattr("mem_mode", "internal_decoupled")
+        fcl_inst.set_nodeattr("resType", "lut")
+
+    swg_layers = model.get_nodes_by_op_type("ConvolutionInputGenerator_rtl")
+    for i in range(len(swg_layers)):
+        swg_inst = getCustomOp(swg_layers[i])
+        simd = folding[i][1]
+        swg_inst.set_nodeattr("SIMD", simd)
+        swg_inst.set_nodeattr("ram_style", "distributed")
+    return model
+model = fold_cnv(model)
+model = model.transform(GiveUniqueNodeNames())
+model.save(build_dir + f"/end2end_{model_name}_folded.onnx")
+\end{jupytercell}
+We can see that the folding factors are set as attributes in each \verb+MVAU+ node (we show the first two MVAU's).
+% AlexNote TODO: Get a couple screenshots of folding factors
+
+
+\begin
 \subsection{Evaluating the BNN compared to running on a GPU // Something like this}
 \section{Experiment 2: Impact of quantisation on neural network FPGA performance}
 \section{Experiment 3: Investigating parallelism in FPGA QNN performance}\label{Experiment3}
