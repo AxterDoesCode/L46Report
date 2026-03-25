@@ -203,12 +203,6 @@ systemctl --user restart docker
 sudo nvidia-ctk config --set nvidia-container-cli.no-cgroups --in-place
 \end{verbatim}
 % AlexNote: Want to show that the GPU is detected in the console
-AlexNote TODO: Want to show that the GPU is detected in the console
-AlexNote TODO: Want to show that the GPU is detected in the console
-AlexNote TODO: Want to show that the GPU is detected in the console
-AlexNote TODO: Want to show that the GPU is detected in the console
-AlexNote TODO: Want to show that the GPU is detected in the console
-AlexNote TODO: Want to show that the GPU is detected in the console
 \subsubsection{PYNQ}
 We need to install a PYNQ image to the Zynq-7000 SoC, we use the PYNQ 3.0.1 image prebuilt for the Pynq-Z1 which can be obtained from \url{https://www.pynq.io/boards.html}.
 We burn the image to a microSD card using \verb+caligula+ (which can be installed with \verb+cargo install caligula+):
@@ -324,12 +318,7 @@ Then we train a binarized neural network with the following command:
 \begin{verbatim}
 BREVITAS_JIT=1 python train.py --network CNV_1W1A --experiments ./experiments --epochs 500 --batch_size 512 --gpus 0
 \end{verbatim}
-AlexNote TODO: add the GPU training results log here
-AlexNote TODO: add the GPU training results log here
-AlexNote TODO: add the GPU training results log here
-AlexNote TODO: add the GPU training results log here
-AlexNote TODO: add the GPU training results log here
-AlexNote TODO: add the GPU training results log here
+% AlexNote TODO: add the GPU training results log here
 
 Now with a trained model, we can export the model to QONNX by executing:
 \begin{verbatim}
@@ -793,8 +782,13 @@ showInNetron(build_dir + f"/end2end_{model_name}_dataflow_model.onnx")
 
 \begin{figure}[H]
     \centering
-    \includegraphics[height=0.88\textheight, keepaspectratio]{Images/Experiment1Graphs/AfterSplittingDataflowModel.png}
-    \caption{Neural Network graph after splitting dataflow model}
+    \includegraphics[height=0.88\textheight, keepaspectratio]{Images/Experiment1Graphs/split/AfterSplittingDataflowModel_p1.png}
+    \caption{Neural Network graph after splitting dataflow model (1/2)}
+\end{figure}
+\begin{figure}[H]
+    \centering
+    \includegraphics[height=0.88\textheight, keepaspectratio]{Images/Experiment1Graphs/split/AfterSplittingDataflowModel_p2.png}
+    \caption{Neural Network graph after splitting dataflow model (2/2)}
 \end{figure}
 
 As seen above, the model has been separated into a dataflow partition and a parent model which contains the dataflow partition.
@@ -895,11 +889,9 @@ showInNetron(postsynth_layers)
     \includegraphics[height=0.88\textheight, keepaspectratio]{Images/Experiment1Graphs/split/AfterSynthesis_p3.png}
     \caption{Neural Network graph after synthesis (3/3)}
 \end{figure}
-
-% AlexNote TODO: Talk about synthesis transformations briefly
+The post-synthesis model notably has included \verb+StreamingDataFlowWidthConverter+ nodes before Convolutions, and that the top of the graph contains an \verb+IODMA+ node used to move data between the accelerator and DRAM.
 
 To get the Vivado reports for hardware utilisation we access the Vivado project by exposing the model metadata:
-
 \begin{jupytercell}
 model = ModelWrapper(build_dir + f"/end2end_{model_name}_post_synth.onnx")
 model.model.metadata_props
@@ -1183,7 +1175,7 @@ copy_tree(pynq_driver_dir, deployment_dir)
 make_archive('deploy-on-pynq-cnv-w1a1-minimal', 'zip', deployment_dir)
 \end{jupytercell}
 
-\subsection{Evaluating the BNN compared to running on a GPU // Something like this}
+\subsection{Evaluating the BNN on FPGA compared to running on a GPU}
 \section{Experiment 2: Impact of quantisation on neural network FPGA performance}
 \section{Experiment 3: Investigating parallelism in FPGA QNN performance}\label{Experiment3}
 Basically see if parallelism with certain quantisation sizes has some impact.
