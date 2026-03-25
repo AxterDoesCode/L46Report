@@ -362,20 +362,24 @@ showInNetron(export_onnx_path)
 With this we can visualise the QONNX graph generated from training:
 \begin{figure}[H]
     \centering
-    \begin{subfigure}[t]{0.23\linewidth}
-        \includegraphics[height=0.88\textheight, keepaspectratio, width=\linewidth]{Images/Experiment1Graphs/split/InitialQONNX_p1.png}
-    \end{subfigure}\hfill
-    \begin{subfigure}[t]{0.23\linewidth}
-        \includegraphics[height=0.88\textheight, keepaspectratio, width=\linewidth]{Images/Experiment1Graphs/split/InitialQONNX_p2.png}
-    \end{subfigure}\hfill
-    \begin{subfigure}[t]{0.23\linewidth}
-        \includegraphics[height=0.88\textheight, keepaspectratio, width=\linewidth]{Images/Experiment1Graphs/split/InitialQONNX_p3.png}
-    \end{subfigure}\hfill
-    \begin{subfigure}[t]{0.23\linewidth}
-        \includegraphics[height=0.88\textheight, keepaspectratio, width=\linewidth]{Images/Experiment1Graphs/split/InitialQONNX_p4.png}
-    \end{subfigure}
-    \caption{Initial ONNX graph before transformations}
+    \includegraphics[height=0.88\textheight, keepaspectratio]{Images/Experiment1Graphs/split/InitialQONNX_p1.png}
+    \caption{Initial ONNX graph before transformations (1/4)}
     \label{fig:InitialGraph}
+\end{figure}
+\begin{figure}[H]
+    \centering
+    \includegraphics[height=0.88\textheight, keepaspectratio]{Images/Experiment1Graphs/split/InitialQONNX_p2.png}
+    \caption{Initial ONNX graph before transformations (2/4)}
+\end{figure}
+\begin{figure}[H]
+    \centering
+    \includegraphics[height=0.88\textheight, keepaspectratio]{Images/Experiment1Graphs/split/InitialQONNX_p3.png}
+    \caption{Initial ONNX graph before transformations (3/4)}
+\end{figure}
+\begin{figure}[H]
+    \centering
+    \includegraphics[height=0.88\textheight, keepaspectratio]{Images/Experiment1Graphs/split/InitialQONNX_p4.png}
+    \caption{Initial ONNX graph before transformations (4/4)}
 \end{figure}
 Next we convert the model from QONNX to FINN-ONNX, operations provided by the FINN library only work on this intermediate representation of models:
 
