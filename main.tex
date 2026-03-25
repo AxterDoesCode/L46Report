@@ -1,5 +1,5 @@
 \documentclass[11pt]{article}
-\usepackage{parskip,times, hyperref, cite, url, graphicx, float, fancyvrb, minted, subcaption}
+\usepackage{parskip,times, hyperref, cite, url, graphicx, float, fancyvrb, minted, subcaption, siunitx}
 \usepackage{tcolorbox}
 \tcbuselibrary{minted,skins,breakable}
 \newtcblisting{jupytercell}{
@@ -43,6 +43,7 @@
 \vspace{2em}
 \centerline{\large Alex Chau (\emph{ac2822}), Churchill College}
 \section{Introduction}
+% AlexNote: TODO: Intro is so fucking AI
 The rapid advancement of machine learning has driven an increasing demand for efficient hardware acceleration of neural networks. 
 While general-purpose processors such as CPUs and GPUs have traditionally been used for this purpose, significant performance and energy efficiency gains have emerged from the use of specialised hardware accelerators.
 In particular, field-programmable gate arrays (FPGAs) have gained attention due to their ability to provide flexible, fine-grained parallelism and custom dataflow architectures tailored to specific workloads.
@@ -60,7 +61,7 @@ Using the FINN framework, quantized models are mapped to dataflow-style hardware
 The study investigates how neural networks trained in Brevitas are mapped to FPGA-accelerated neural networks and how different levels of quantisation that impact performance, as well as how these effects interact with architectural parallelism. 
 Through these experiments, the project aims to provide insight into the trade-offs between accuracy, resource utilisation, and performance in quantised neural network deployment on reconfigurable hardware.
 \section{Experiment 1: Analysis of the PyTorch to FPGA transformation pipeline for Quantized Neural Networks}
-This experiment is and end-to-end implementation of a BNN as described by \cite{}, we explore some of the black-box steps when converting a trained Brevitas/PyTorch network into an FPGA-usable bitstream.
+This experiment is an end-to-end implementation of a BNN as described by \cite{courbariauxBinarizedNeuralNetworks2016a}, we explore some of the black-box steps when converting a trained Brevitas/PyTorch network into an FPGA-usable bitstream.
 \subsection{System Setup}
 To evaluate quantized neural network acceleration on FPGA hardware, the FINN framework was deployed on a Diligent Arty-Z7-20 development board.
 FINN is an open-source framework developed by Xilinx/AMD that enables deployment of quantized neural networkks (QNNs) on FPGA platforms through automated hardware generation and compilation.
@@ -753,7 +754,7 @@ showInNetron(build_dir + f"/end2end_{model_name}_dataflow_parent.onnx")
 
 \begin{figure}[H]
     \centering
-    \includegraphics[height=0.2\textheight, keepaspectratio]{Images/Experiment1Graphs/AfterSplittingDataflowParent.png}
+    \includegraphics[height=0.4\textheight, keepaspectratio]{Images/Experiment1Graphs/AfterSplittingDataflowParent.png}
     \caption{Neural Network graph after splitting dataflow model}
 \end{figure}
 
@@ -1154,7 +1155,8 @@ copy_tree(pynq_driver_dir, deployment_dir)
 make_archive('deploy-on-pynq-cnv-w1a1-large', 'zip', deployment_dir)
 \end{jupytercell}
 \subsection{Evaluating the BNN on FPGA}
-The zipped file containing model weights and the bitstream was uploaded to a finn\_examples fork for ease of use, these set of examples have some nice validation utilies and adding custom trained networks in is fairly simple.
+The zipped file containing model weights and the bitstream was uploaded to a \verb+finn_examples+ fork for ease of use, 
+this set of examples which AMD provides has some nice validation utilities, adding custom trained networks into it is fairly simple.
 
 ssh into the Arty-Z7-20 with local port forwarding:
 \begin{verbatim}
@@ -1274,12 +1276,24 @@ accel.throughput_test()
 
 As seen from the final accuracy, we achieve an accuracy of 81.79\% on the FPGA, which is very close to the GPU accuracy we saw (81.83\%).
 
-During the entire testset validation, I loosely measure power by using a power consumption socket.
+During the entire testset validation, we loosely measure power by using a power consumption socket.
 Whilst this isn't ideal, there aren't any readily accessible power rails for the PL or PS (getting true power would be very hacky).
-Instead I use the socket to measure the idle system power, the power under a classification workload and find the difference.
+Instead we use the socket to measure the idle system power, the power under a classification workload and find the difference.
 
-For the above notebook, the idle power was measured at \SI{1.8}{\watt}, with the workload power measuring \SI{2.6}{\watt}.
+For the above notebook, the idle power was measured at \SI{1.8}{\watt}, with the workload power measuring \SI{2.6}{\watt}, meaning that network PS+PL uses \SI{0.8}{\watt} under load.
 % AlexNote TODO: Add power socket images!!!
+\begin{figure}[H]
+    \centering
+    \includegraphics[height=0.4\textheight]{Images/Experiment1Graphs/PowerIdle.png}
+    \caption{Idle power of the Arty-Z7-20 running PYNQ}
+    \label{fig:Idle power of Arty-Z7-20}
+\end{figure}
+\begin{figure}[H]
+    \centering
+    \includegraphics[height=0.4\textheight]{Images/Experiment1Graphs/PowerUnderLoad.png}
+    \caption{Under load power of the Arty-Z7-20 running PYNQ}
+    \label{fig:Under load power of Arty-Z7-20}
+\end{figure}
 \section{Experiment 2: Impact of quantisation on neural network FPGA performance}
 Armed with a more intuitive understanding of the complete Brevitas to FPGA FINN flow, we can evaluate 
 \section{Experiment 3: Investigating parallelism in FPGA QNN performance}\label{Experiment3}
