@@ -401,10 +401,27 @@ model.save(build_dir + f"/end2end_{model_name}_FINNONNX.onnx")
 showInNetron(build_dir+f"/end2end_{model_name}_FINNONNX.onnx")
 \end{jupytercell}
 AlexNote TODO: Add the ConvertQONNXtoFINN netron graph here and discuss what it does.
+AlexNote TODO: Did I export the wrong image, looks to be exactly the same as before
 \begin{figure}[H]
     \centering
-    \includegraphics[height=0.88\textheight, keepaspectratio]{Images/Experiment1Graphs/AfterONNXtoFINN.png}
-    \caption{Model graph after converting from ONNX to FINN-ONNX}
+    \includegraphics[height=0.88\textheight, keepaspectratio]{Images/Experiment1Graphs/split/AfterQONNXtoFINN_p1.png}
+    \caption{Model graph after converting from ONNX to FINN-ONNX (1/4)}
+    \label{fig:AfterQONNXtoFINN}
+\end{figure}
+\begin{figure}[H]
+    \centering
+    \includegraphics[height=0.88\textheight, keepaspectratio]{Images/Experiment1Graphs/split/AfterQONNXtoFINN_p2.png}
+    \caption{Model graph after converting from ONNX to FINN-ONNX (2/4)}
+\end{figure}
+\begin{figure}[H]
+    \centering
+    \includegraphics[height=0.88\textheight, keepaspectratio]{Images/Experiment1Graphs/split/AfterQONNXtoFINN_p3.png}
+    \caption{Model graph after converting from ONNX to FINN-ONNX (3/4)}
+\end{figure}
+\begin{figure}[H]
+    \centering
+    \includegraphics[height=0.88\textheight, keepaspectratio]{Images/Experiment1Graphs/split/AfterQONNXtoFINN_p4.png}
+    \caption{Model graph after converting from ONNX to FINN-ONNX (4/4)}
 \end{figure}
 
 We perform some basic transformations to prepare the graph for upcoming transformations, these include:
