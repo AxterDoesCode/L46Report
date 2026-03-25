@@ -39,7 +39,7 @@
 \vspace{-2em}
 \centerline{\large \emph{L46 Project}}
 \vspace{2em}
-\centerline{\Large \emph{Exploring Quantisation In FPGA-Accelerated Binarized Neural Networks}}
+\centerline{\Large \emph{Exploring FPGA-Accelerated Quantized Neural Networks}}
 \vspace{2em}
 \centerline{\large Alex Chau (\emph{ac2822}), Churchill College}
 \section{Introduction}
@@ -318,8 +318,13 @@ Then we train a binarized neural network with the following command:
 \begin{verbatim}
 BREVITAS_JIT=1 python train.py --network CNV_1W1A --experiments ./experiments --epochs 500 --batch_size 512 --gpus 0
 \end{verbatim}
-% AlexNote TODO: add the GPU training results log here
-
+The end output of the training reveals the overall GPU accuracy of  on the test set:
+\begin{verbatim}
+2026-03-11 14:19:46,495 Test: [18/20]	Model Time 0.009 (0.010)	Loss Time 0.000 (0.000)	Loss 0.0879 (0.1055)	Prec@1 86.328 (81.743)	Prec@5 98.828 (98.396)	
+2026-03-11 14:19:46,505 Test: [19/20]	Model Time 0.008 (0.010)	Loss Time 0.000 (0.000)	Loss 0.1047 (0.1055)	Prec@1 83.456 (81.790)	Prec@5 97.794 (98.380)	
+2026-03-11 14:19:46,654 Saving checkpoint model to /home/axtr/Documents/Code/finn/brevitas_examples/bnn_pynq/experiments/CNV_1W1A_1W1A_20260311_133658/checkpoints/checkpoint.tar
+Overall accuracy: 81.829
+\end{verbatim}
 Now with a trained model, we can export the model to QONNX by executing:
 \begin{verbatim}
 BREVITAS_JIT=0 python train.py --evaluate --network CNV_1W1A --resume ./experiments/path/to/checkpoint.tar --export_qonnx --gpus 0 --batch_size 512
@@ -871,7 +876,7 @@ model = ModelWrapper(build_dir + f"/end2end_{model_name}_post_synth.onnx")
 model.model.metadata_props
 \end{jupytercell}
 
-% AlexNote TODO: Add output here
+% AlexNote TODO: Add output here maybe?
 \begin{verbatim}
 \end{verbatim}
 
@@ -1146,11 +1151,137 @@ for dfile in deploy_files:
 # driver.py and python libraries
 pynq_driver_dir = model.get_metadata_prop("pynq_driver_dir")
 copy_tree(pynq_driver_dir, deployment_dir)
-make_archive('deploy-on-pynq-cnv-w1a1-minimal', 'zip', deployment_dir)
+make_archive('deploy-on-pynq-cnv-w1a1-large', 'zip', deployment_dir)
 \end{jupytercell}
+\subsection{Evaluating the BNN on FPGA}
+The zipped file containing model weights and the bitstream was uploaded to a finn\_examples fork for ease of use, these set of examples have some nice validation utilies and adding custom trained networks in is fairly simple.
 
-\subsection{Evaluating the BNN on FPGA compared to running on a GPU}
+ssh into the Arty-Z7-20 with local port forwarding:
+\begin{verbatim}
+ssh -L 8888:localhost:8888 xilinx@192.168.2.247
+\end{verbatim}
+login as sudo:
+\begin{verbatim}
+sudo su
+\end{verbatim}
+Source the PYNQ and XRT venv
+\begin{verbatim}
+source /etc/profile.d/pynq_venv.sh
+source /etc/profile.d/xrt_setup.sh
+\end{verbatim}
+install finn-examples fork with the bitstream and model weights we just trained:
+\begin{verbatim}
+pip3 install git+https://github.com/AxterDoesCode/finn-examples.git --no-build-isolation
+\end{verbatim}
+Run the jupyter notebook server:
+\begin{verbatim}
+cd /home/xilinx/jupyter_notebooks
+pynq get-notebooks --from-package finn-examples -p . --force
+jupyter-notebook --no-browser --allow-root --port=8888
+\end{verbatim}
+On the main Ubuntu device we can access \verb+localhost:8888+ in the browser and login to the notebook server.
+Entering the notebooks directory we can use \verb+AlexNotebook.ipynb+ to access some validation scripts.
+(Below cells will mirror the notebook)
+Initialize accelerator
+\begin{jupytercell}
+from finn_examples import models
+accel = models.cnv_cifar10("cnv_w1a1_large")
+\end{jupytercell}
+\begin{jupytercell}
+from dataset_loading import cifar
+trainx, trainy, testx, testy, valx, valy = cifar.load_cifar_data("/tmp", download=True, one_hot=False)
+\end{jupytercell}
+Validate accuracy on entire CIFAR-10 test set
+\begin{jupytercell}
+import numpy as np
+
+batch_size = 1000
+total = testx.shape[0]
+accel.batch_size = batch_size
+n_batches = int(total / batch_size)
+
+batch_imgs = testx.reshape(n_batches, batch_size, -1)
+batch_labels = testy.reshape(n_batches, batch_size)
+obuf_normal = np.empty_like(accel.obuf_packed_device)
+print("Ready to run validation, test images tensor has shape %s" % str(batch_imgs.shape))
+print("Accelerator buffer shapes are %s for input, %s for output" % (str(accel.ishape_packed()), str(accel.oshape_packed())))
+\end{jupytercell}
+\begin{verbatim}
+Ready to run validation, test images tensor has shape (10, 1000, 3072)
+Accelerator buffer shapes are (1000, 32, 32, 3, 1) for input, (1000, 1, 1) for output
+\end{verbatim}
+\begin{jupytercell}
+ok = 0
+nok = 0
+for i in range(n_batches):
+    ibuf_normal = batch_imgs[i].reshape(accel.ishape_normal())
+    exp = batch_labels[i]
+    obuf_normal = accel.execute(ibuf_normal)
+    ret = np.bincount(obuf_normal.flatten() == exp.flatten())
+    nok += ret[0]
+    ok += ret[1]
+    print("batch %d / %d : total OK %d NOK %d" % (i, n_batches, ok, nok))
+\end{jupytercell}
+\begin{verbatim}
+batch 0 / 10 : total OK 814 NOK 186
+batch 1 / 10 : total OK 1629 NOK 371
+batch 2 / 10 : total OK 2448 NOK 552
+batch 3 / 10 : total OK 3260 NOK 740
+batch 4 / 10 : total OK 4078 NOK 922
+batch 5 / 10 : total OK 4881 NOK 1119
+batch 6 / 10 : total OK 5710 NOK 1290
+batch 7 / 10 : total OK 6523 NOK 1477
+batch 8 / 10 : total OK 7326 NOK 1674
+batch 9 / 10 : total OK 8179 NOK 1821
+\end{verbatim}
+\begin{jupytercell}
+acc = 100.0 * ok / (total)
+print("Final accuracy: {}%".format(acc))
+\end{jupytercell}
+\begin{verbatim}
+Final accuracy: 81.79%
+\end{verbatim}
+\begin{jupytercell}
+full_validation_time = %timeit -n 1 -o run_validation()
+\end{jupytercell}
+\begin{verbatim}
+5.2 s ± 4.75 ms per loop (mean ± std. dev. of 7 runs, 1 loop each)
+\end{verbatim}
+\begin{jupytercell}
+print("%f images per second including data movement" % (total / float(full_validation_time.best)))
+\end{jupytercell}
+\begin{verbatim}
+1924.134717 images per second including data movement
+\end{verbatim}
+Throughput testing
+\begin{jupytercell}
+accel.throughput_test()
+\end{jupytercell}
+\begin{verbatim}
+{'runtime[ms]': 501.21521949768066,
+ 'throughput[images/s]': 1995.1509074329445,
+ 'DRAM_in_bandwidth[MB/s]': 6.129103587634005,
+ 'DRAM_out_bandwidth[MB/s]': 0.0019951509074329445,
+ 'fclk[mhz]': 100.0,
+ 'batch_size': 1000,
+ 'fold_input[ms]': 0.2002716064453125,
+ 'pack_input[ms]': 0.0972747802734375,
+ 'copy_input_data_to_device[ms]': 17.28510856628418,
+ 'copy_output_data_from_device[ms]': 0.2601146697998047,
+ 'unpack_output[ms]': 1.2216567993164062,
+ 'unfold_output[ms]': 0.15497207641601562}
+\end{verbatim}
+
+As seen from the final accuracy, we achieve an accuracy of 81.79\% on the FPGA, which is very close to the GPU accuracy we saw (81.83\%).
+
+During the entire testset validation, I loosely measure power by using a power consumption socket.
+Whilst this isn't ideal, there aren't any readily accessible power rails for the PL or PS (getting true power would be very hacky).
+Instead I use the socket to measure the idle system power, the power under a classification workload and find the difference.
+
+For the above notebook, the idle power was measured at \SI{1.8}{\watt}, with the workload power measuring \SI{2.6}{\watt}.
+% AlexNote TODO: Add power socket images!!!
 \section{Experiment 2: Impact of quantisation on neural network FPGA performance}
+Armed with a more intuitive understanding of the complete Brevitas to FPGA FINN flow, we can evaluate 
 \section{Experiment 3: Investigating parallelism in FPGA QNN performance}\label{Experiment3}
 Basically see if parallelism with certain quantisation sizes has some impact.
 Use minimal, small, and the w1a1 things in hardware
