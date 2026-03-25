@@ -3,9 +3,9 @@
 *.fls
 *.log
 *.out
-*.synctex.gz
 *.bbl
 *.blg
 *.listing
+*.synctex.gz
 _minted
 
