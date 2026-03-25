@@ -560,12 +560,24 @@ model.save(build_dir + f"/end2end_{model_name}_streamlined.onnx")
 showInNetron(build_dir+f"/end2end_{model_name}_streamlined.onnx")
 \end{jupytercell}
 
+\begin{figure}[H]
+    \centering
+    \includegraphics[height=0.88\textheight, keepaspectratio]{Images/Experiment1Graphs/AfterStreamlining1.png}
+    \caption{FINN-ONNX graph after streamlining}
+\end{figure}
+
 Now we can perform the lowering transformation on the convolution layers
 \begin{jupytercell}
 model = model.transform(LowerConvsToMatMul())
 model.save(build_dir + f"/end2end_{model_name}_streamlined.onnx")
 showInNetron(build_dir+f"/end2end_{model_name}_streamlined.onnx")
 \end{jupytercell}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[height=0.88\textheight, keepaspectratio]{Images/Experiment1Graphs/AfterStreamlining2.png}
+    \caption{FINN-ONNX graph after lowering}
+\end{figure}
 
 Next we apply the transformations \verb+MakeMaxPoolNHWC+ and \verb+AbsorbTransposeIntoMultiThreshold+, these transformations converts the data layout of the FINN-ONNX nodes back into ONNX-like data layouts.
 Specifically, the tensor dimensions are reordered as NCHW where (N: Batch,  H: Height, W: Width, C: Channels). The reason for doing this is because the underlying RTL libraries which FINN maps the model to are also structured as NHWC.
@@ -577,11 +589,23 @@ model.save(build_dir + f"/end2end_{model_name}_streamlined.onnx")
 showInNetron(build_dir+f"/end2end_{model_name}_streamlined.onnx")
 \end{jupytercell}
 
+\begin{figure}[H]
+    \centering
+    \includegraphics[height=0.88\textheight, keepaspectratio]{Images/Experiment1Graphs/AfterStreamlining3.png}
+    \caption{FINN-ONNX graph after streamlining}
+\end{figure}
+
 \begin{jupytercell}
 model = model.transform(ConvertBipolarMatMulToXnorPopcount())
 model.save(build_dir + f"/end2end_{model_name}_streamlined.onnx")
 showInNetron(build_dir+f"/end2end_{model_name}_streamlined.onnx")
 \end{jupytercell}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[height=0.88\textheight, keepaspectratio]{Images/Experiment1Graphs/AfterStreamlining5.png}
+    \caption{FINN-ONNX graph after streamlining}
+\end{figure}
 
 \begin{jupytercell}
 model = model.transform(Streamline())
@@ -589,12 +613,23 @@ model.save(build_dir + f"/end2end_{model_name}_streamlined.onnx")
 showInNetron(build_dir+f"/end2end_{model_name}_streamlined.onnx")
 \end{jupytercell}
 
+\begin{figure}[H]
+    \centering
+    \includegraphics[height=0.88\textheight, keepaspectratio]{Images/Experiment1Graphs/AfterStreamlining5.png}
+    \caption{FINN-ONNX graph after streamlining}
+\end{figure}
+
 \begin{jupytercell}
 model = model.transform(absorb.AbsorbScalarMulAddIntoTopK())
 model = model.transform(InferDataLayouts())
 model = model.transform(RemoveUnusedTensors())
 model.save(build_dir + f"/end2end_{model_name}_streamlined.onnx")
 \end{jupytercell}
+\begin{figure}[H]
+    \centering
+    \includegraphics[height=0.88\textheight, keepaspectratio]{Images/Experiment1Graphs/AfterStreamlining7.png}
+    \caption{FINN-ONNX graph after streamlining}
+\end{figure}
 \subsection{Evaluating the BNN compared to running on a GPU // Something like this}
 \section{Experiment 2: Impact of quantisation on neural network FPGA performance}
 \section{Experiment 3: Investigating parallelism in FPGA QNN performance}\label{Experiment3}
