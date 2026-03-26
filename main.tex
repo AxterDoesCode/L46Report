@@ -45,16 +45,16 @@
 \section{Introduction}
 % AlexNote: TODO: Intro is so fucking AI please update
 The rapid advancement of machine learning has driven an increasing demand for efficient hardware acceleration of neural networks. 
-While general-purpose processors such as CPUs and GPUs have traditionally been used for this purpose, significant performance and energy efficiency gains have emerged from the use of specialised hardware accelerators.
+While general-purpose processors such as CPUs and GPUs have traditionally been used for this purpose, significant gains in performance and energy efficiency have emerged from the use of specialised hardware accelerators.
 In particular, field-programmable gate arrays (FPGAs) have gained attention due to their ability to provide flexible, fine-grained parallelism and custom dataflow architectures tailored to specific workloads.
 
 A key technique enabling these improvements is quantisation, which reduces the numerical precision of neural network parameters and activations. 
 By representing values with fewer bits, ranging from reduced fixed-point precision to fully binarized representations, quantisation significantly lowers memory usage and computational complexity. 
-This, in turn, allows for faster inference, reduced power consumption, and more efficient utilisation of hardware resources. 
+This allows for faster inference, reduced power consumption, and more efficient utilisation of hardware resources. 
 In extreme cases such as binarized neural networks (BNNs), arithmetic operations can be simplified to bitwise operations, making them especially well-suited for FPGA implementations.
 
 Much of the recent progress in the AI hardware acceleration space can be attributed to the combination of increased hardware specialisation and aggressive quantisation strategies. 
-Specialised architectures are able to exploit the reduced precision of quantised models to maximise parallelism and throughput, achieving performance levels that would be difficult to attain with conventional high precision designs.
+Specialised hardware architectures are able to exploit the reduced precision of quantised models to maximise parallelism and throughput, achieving performance levels that would be difficult to attain conventionally.
 
 This project explores the role of quantisation in FPGA-accelerated neural networks, with a particular focus on binarized neural networks.
 Using the FINN framework, quantized models are mapped to dataflow-style hardware architectures on an FPGA platform. 
@@ -247,7 +247,7 @@ The default user on Pynq images is \verb+xilinx+ with the root password also bei
 \begin{verbatim}
 ssh-copy-id -i PATH_TO_YOUR_PUBKEY xilinx@192.168.2.247
 \end{verbatim}
-The Zynq-7000 needs internet access, as it connects directly to the Ubuntu pc we can setup a network bridge so that the board gets internet access.
+The Zynq-7000 needs internet access (pulling repositories, pip installs, downloading datasets), as it connects directly to the Ubuntu pc we can setup a network bridge so that the board gets internet access.
 Locate the wired network tab in Ubuntu settings:
 \begin{figure}[H]
     \centering
@@ -506,7 +506,7 @@ Two primitives in the FINN RTL library are the Sliding Window Unit (SWU) and Mat
 
 First we perform some small transformations and \verb+Streamline+ the network:
 The goal of \verb+Streamline+ is to eliminate floating point operations by moving and collapsing them into one operation.
-This becomes clearer when we look at the sub transformations involved in the \verb+Streamline+ transformation.
+We can look at the operations that comprise streamlining:
 
 \begin{jupytercell}
 from finn.util.visualization import showSrc
@@ -550,7 +550,7 @@ class Streamline(Transformation):
             model = model.transform(InferDataTypes())
         return (model, False)
 \end{verbatim}
-% AlexNote: Describe this better
+% AlexNote: Describe this better, talk about the streamlining algorithm as presented in the paper and how it relates to the FINN implementation here:
 The FINN \verb+Streamline+ transformation performs the streamlining operation described by \cite{umurogluStreamlinedDeploymentQuantized2018}.
 \begin{jupytercell}
 from qonnx.transformation.lower_convs_to_matmul import LowerConvsToMatMul
@@ -1154,11 +1154,11 @@ pynq_driver_dir = model.get_metadata_prop("pynq_driver_dir")
 copy_tree(pynq_driver_dir, deployment_dir)
 make_archive('deploy-on-pynq-cnv-w1a1-large', 'zip', deployment_dir)
 \end{jupytercell}
-\subsection{Evaluating the BNN on FPGA}
+\subsection{Evaluating the BNN on the Arty-Z7-20}
 The zipped file containing model weights and the bitstream was uploaded to a \verb+finn_examples+ fork for ease of use, 
 this set of examples which AMD provides has some nice validation utilities, adding custom trained networks into it is fairly simple.
 
-ssh into the Arty-Z7-20 with local port forwarding:
+ssh into the Arty-Z7-20 with local port forwarding to expose the jupyter server:
 \begin{verbatim}
 ssh -L 8888:localhost:8888 xilinx@192.168.2.247
 \end{verbatim}
