@@ -550,8 +550,10 @@ class Streamline(Transformation):
             model = model.transform(InferDataTypes())
         return (model, False)
 \end{verbatim}
-% AlexNote: Describe this better, talk about the streamlining algorithm as presented in the paper and how it relates to the FINN implementation here:
 The FINN \verb+Streamline+ transformation performs the streamlining operation described by \cite{umurogluStreamlinedDeploymentQuantized2018}.
+The core insight is that linear operations (scaling and bias terms) can be commuted past certain network layers and ultimately absorbed into the integer thresholds of quantized activation functions, eliminating all floating-point arithmetic from the inference path.
+The algorithm proceeds in three phases: first, batch-normalisation layers and other operations are converted into explicit affine transforms; second, these scalar linear operations are moved through the graph toward the activation functions, with accumulated operations collapsed together; third, the remaining scale and bias terms are absorbed into the \verb+MultiThreshold+ nodes and rounded to integers.
+After streamlining, no floating-point operations remain in the datapath.
 \begin{jupytercell}
 from qonnx.transformation.lower_convs_to_matmul import LowerConvsToMatMul
 from qonnx.transformation.bipolar_to_xnor import ConvertBipolarMatMulToXnorPopcount
@@ -877,8 +879,22 @@ model = ModelWrapper(build_dir + f"/end2end_{model_name}_post_synth.onnx")
 model.model.metadata_props
 \end{jupytercell}
 
-% AlexNote TODO: Add output here maybe?
 \begin{verbatim}
+[key: "floorplan_json"
+value: "/tmp/finn_dev_axtr/vitis_floorplan_wzk_2gwt/floorplan.json"
+, key: "vivado_pynq_proj"
+value: "/tmp/finn_dev_axtr/vivado_zynq_proj_sqqopn13"
+, key: "bitfile"
+value: "/tmp/finn_dev_axtr/vivado_zynq_proj_sqqopn13/resizer.bit"
+, key: "hw_handoff"
+value: "/tmp/finn_dev_axtr/vivado_zynq_proj_sqqopn13/resizer.hwh"
+, key: "vivado_synth_rpt"
+value: "/tmp/finn_dev_axtr/vivado_zynq_proj_sqqopn13/synth_report.xml"
+, key: "platform"
+value: "zynq-iodma"
+, key: "pynq_driver_dir"
+value: "/tmp/finn_dev_axtr/pynq_driver_hjny6kgw"
+]
 \end{verbatim}
 
 Having a look at the report of the implementation run of the project we see various utilization metrics:
