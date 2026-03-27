@@ -1,0 +1,2 @@
+Final accuracy: 87.07%
+Power: 0.5W
