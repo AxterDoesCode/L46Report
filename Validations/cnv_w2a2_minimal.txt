@@ -1,2 +1,20 @@
 Final accuracy: 87.07%
+
+3min 34s ± 163 µs per loop (mean ± std. dev. of 7 runs, 1 loop each)
+
+46.690493 images per second including data movement
+
+{'runtime[ms]': 21401.78418159485,
+ 'throughput[images/s]': 46.72507635414725,
+ 'DRAM_in_bandwidth[MB/s]': 0.14353943455994034,
+ 'DRAM_out_bandwidth[MB/s]': 4.6725076354147245e-05,
+ 'fclk[mhz]': 100.0,
+ 'batch_size': 1000,
+ 'fold_input[ms]': 0.13828277587890625,
+ 'pack_input[ms]': 0.09322166442871094,
+ 'copy_input_data_to_device[ms]': 16.8912410736084,
+ 'copy_output_data_from_device[ms]': 0.26297569274902344,
+ 'unpack_output[ms]': 0.9214878082275391,
+ 'unfold_output[ms]': 0.15807151794433594}
+
 Power: 0.5W
