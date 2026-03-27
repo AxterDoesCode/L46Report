@@ -203,7 +203,6 @@ nvidia-ctk runtime configure --runtime=docker --config=$HOME/.config/docker/daem
 systemctl --user restart docker
 sudo nvidia-ctk config --set nvidia-container-cli.no-cgroups --in-place
 \end{verbatim}
-% AlexNote TODO: Want to show that the GPU is detected in the console
 \subsubsection{PYNQ}
 We need to install a PYNQ image to the Zynq-7000 SoC, we use the PYNQ 3.0.1 image prebuilt for the Pynq-Z1 which can be obtained from \url{https://www.pynq.io/boards.html}.
 We burn the image to a microSD card using \verb+caligula+ (which can be installed with \verb+cargo install caligula+):
@@ -1392,7 +1391,7 @@ Several trends are evident.
 First, accuracy scales with bit-width: moving from 1-bit to 2-bit weights or activations consistently improves top-1 accuracy, with \texttt{w2a2} reaching 87.07\% and \texttt{w1a1} achieving 81.79\%. In all cases the FPGA accuracy tracks GPU accuracy closely, with a gap of at most 0.08 percentage points, confirming that the FINN compilation pipeline introduces negligible accuracy loss.
 Second, at a fixed folding factor, throughput is essentially identical across all quantisation configurations — the inference rate is determined by the hardware parallelism, not the bit-width.
 Third, power and resource usage both increase with precision: LUT usage grows from 43.60\% (\texttt{w1a1}) to 66.90\% (\texttt{w2a2}), and power rises from \SI{0.5}{\watt} to \SI{1.0}{\watt}.
-Notably, no DSPs are used by any configuration — all compute is implemented via XNOR-popcount operations mapped to LUTs.
+Notably, no DSPs are used by any configuration, all compute is implemented via MVAU XNOR-popcount operations mapped to LUTs.
 Fourth, BRAM usage is particularly sensitive to activation bit-width: the 2-weight configurations (\texttt{w2a1}, \texttt{w2a2}) consume over 83\% of available BRAM tiles, driven by the larger weight buffers required for 2-bit weights.
 \section{Experiment 3: Effect of Folding Factor on FPGA Throughput and Resource Utilisation}\label{Experiment3}
 Having established the effect of quantisation at a fixed parallelism level, we now evaluate all four quantisation configurations across two folding factors (minimal and small), and additionally evaluate \texttt{w1a1} at a large folding factor.
@@ -1518,6 +1517,15 @@ Increasing the folding factor from minimal to small yields a $13.6\times$ throug
 LUT and FF usage grows with both folding factor and precision, as wider datapaths and larger weight representations both demand more combinational logic.
 BRAM usage is driven primarily by weight bit-width rather than folding: the 2-weight configurations consume over 85\% of BRAM tiles even at minimal folding, leaving insufficient headroom for a large folding factor.
 Power scales with folding factor across all configs, rising from \SI{0.3}{\watt} at minimal to \SI{1.0}{\watt} for \texttt{w2a2} at small folding.
+
+\section{Final Thoughts}
+This project has demonstrated the end-to-end process of deploying quantised neural networks on FPGA hardware using the Brevitas and FINN frameworks, and has explored how quantisation bit-width and hardware parallelism interact to determine accuracy, throughput, power, and resource utilisation.
+
+A natural extension of this work would be to evaluate higher-precision configurations such as 4-bit and 8-bit weights and activations, which typically close the accuracy gap to full-precision models more substantially.
+However, as the experiments here illustrate, BRAM is the primary bottleneck on the Arty-Z7-20: even at 2-bit weight precision the \texttt{w2a1} and \texttt{w2a2} configurations already consume over 85\% of the available 140 BRAM tiles at minimal folding.
+Scaling to 4-bit or 8-bit weights would require proportionally larger on-chip weight buffers, exhausting BRAM well before the LUT or FF resources become binding constraints.
+A board with a larger FPGA component, such as the Zynq UltraScale+ family, would be necessary to explore these higher bit-width regimes, and would likely reveal further trade-offs between accuracy recovery and resource cost that are not visible within the constraints of this platform.
+
 \newpage
 \bibliography{library}{}
 \bibliographystyle{plainurl}
