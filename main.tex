@@ -1312,31 +1312,88 @@ For the above notebook, the idle power was measured at \SI{1.8}{\watt}, with the
         \label{fig:Under load power of Arty-Z7-20}
     \end{subfigure}
 \end{figure}
-\section{Experiment 2: Impact of quantisation on neural network FPGA performance}
-Armed with a more intuitive understanding of the complete Brevitas to FPGA FINN flow, we evaluate the effects of quantisation for other weight/activation bit-levels.
-We train CNV variants with weight/activation precisions of 1 and 2 bits (\texttt{w1a1}, \texttt{w1a2}, \texttt{w2a1}, \texttt{w2a2}) and deploy each using the small folding factor on the Arty-Z7-20.
-Table~\ref{tab:exp2_results} summarises the accuracy, throughput, and power draw for each configuration.
+\section{Experiment 2: Effect of Weight and Activation Bit-Width on FPGA Accuracy, Throughput, and Resource Utilisation}
+Armed with a more intuitive understanding of the complete Brevitas to FPGA FINN flow, we evaluate the effects of quantisation across weight/activation bit-levels of 1 and 2 bits (\texttt{w1a1}, \texttt{w1a2}, \texttt{w2a1}, \texttt{w2a2}).
+To isolate quantisation from parallelism effects, a single folding configuration (\texttt{cnv\_small}) is applied uniformly to all models.
+Each layer's PE count, SIMD width, and memory style are fixed as follows:
+\begin{jupytercell}
+def fold_cnv_small(model):
+    fc_layers = model.get_nodes_by_op_type("MVAU_hls")
+    # each tuple is (PE, SIMD, ram_style) for a layer
+    folding = [
+        (8, 3, "distributed"),
+        (16, 16, "distributed"),
+        (8, 16, "auto"),
+        (8, 16, "distributed"),
+        (4, 8, "auto"),
+        (1, 8, "auto"),
+        (1, 2, "block"),
+        (2, 2, "auto"),
+        (5, 1, "distributed"),
+    ]
+    for fcl, (pe, simd, ramstyle) in zip(fc_layers, folding):
+        fcl_inst = getCustomOp(fcl)
+        fcl_inst.set_nodeattr("PE", pe)
+        fcl_inst.set_nodeattr("SIMD", simd)
+        fcl_inst.set_nodeattr("ram_style", ramstyle)
+        fcl_inst.set_nodeattr("mem_mode", "internal_decoupled")
+        fcl_inst.set_nodeattr("resType", "lut")
+
+    swg_layers = model.get_nodes_by_op_type("ConvolutionInputGenerator_rtl")
+    for i in range(len(swg_layers)):
+        swg_inst = getCustomOp(swg_layers[i])
+        simd = folding[i][1]
+        swg_inst.set_nodeattr("SIMD", simd)
+        swg_inst.set_nodeattr("ram_style", "distributed")
+    inp_qnt_node = model.get_nodes_by_op_type("Thresholding_rtl")[0]
+    inp_qnt = getCustomOp(inp_qnt_node)
+    inp_qnt.set_nodeattr("depth_trigger_uram", 32000)
+    inp_qnt.set_nodeattr("depth_trigger_bram", 32000)
+    return model
+\end{jupytercell}
+
+Tables~\ref{tab:exp2_results} and~\ref{tab:exp2_util} summarise the performance and hardware resource utilisation for each configuration.
 
 \begin{table}[H]
 \centering
-\caption{Accuracy, throughput, and power for CNV variants at the small folding factor.}
+\caption{GPU vs.\ FPGA accuracy, throughput, and power for CNV variants at the small folding factor.}
 \label{tab:exp2_results}
-\begin{tabular}{lrrr}
+\begin{tabular}{lrrrr}
 \hline
-\textbf{Config} & \textbf{Accuracy (\%)} & \textbf{Throughput (img/s)} & \textbf{Power (W)} \\
+\textbf{Config} & \textbf{GPU Accuracy (\%)} & \textbf{FPGA Accuracy (\%)} & \textbf{Throughput (img/s)} & \textbf{Power (W)} \\
 \hline
-W1A1 & 81.79 & 636.67 & 0.5 \\
-W1A2 & 85.95 & 636.62 & 0.7 \\
-W2A1 & 84.57 & 636.65 & 0.9 \\
-W2A2 & 87.07 & 636.61 & 1.0 \\
+W1A1 & 81.83 & 81.79 & 636.67 & 0.5 \\
+W1A2 & 85.93 & 85.95 & 636.62 & 0.7 \\
+W2A1 & 84.49 & 84.57 & 636.65 & 0.9 \\
+W2A2 & 87.01 & 87.07 & 636.61 & 1.0 \\
+\hline
+\end{tabular}
+\end{table}
+
+Table~\ref{tab:exp2_util} shows the post-place hardware resource utilisation reported by Vivado for each configuration on the xc7z020 device (53200 LUTs, 106400 FFs, 140 BRAM tiles available).
+
+\begin{table}[H]
+\centering
+\caption{Post-place resource utilisation for CNV variants at the small folding factor (xc7z020).}
+\label{tab:exp2_util}
+\begin{tabular}{lrrrrrr}
+\hline
+\textbf{Config} & \textbf{LUTs} & \textbf{LUT\%} & \textbf{FFs} & \textbf{FF\%} & \textbf{BRAM tiles} & \textbf{BRAM\%} \\
+\hline
+W1A1 & 23196 & 43.60 & 25164 & 23.65 &  65.5 & 46.79 \\
+W1A2 & 30653 & 57.62 & 35445 & 33.31 &  61.5 & 43.93 \\
+W2A1 & 30323 & 57.00 & 28294 & 26.59 & 121.0 & 86.43 \\
+W2A2 & 35592 & 66.90 & 38785 & 36.45 & 117.0 & 83.57 \\
 \hline
 \end{tabular}
 \end{table}
 
 Several trends are evident.
-First, accuracy scales with bit-width: moving from 1-bit to 2-bit weights or activations consistently improves top-1 accuracy, with \texttt{w2a2} reaching 87.07\% and \texttt{w1a1} achieving 81.79\%.
+First, accuracy scales with bit-width: moving from 1-bit to 2-bit weights or activations consistently improves top-1 accuracy, with \texttt{w2a2} reaching 87.07\% and \texttt{w1a1} achieving 81.79\%. In all cases the FPGA accuracy tracks GPU accuracy closely, with a gap of at most 0.08 percentage points, confirming that the FINN compilation pipeline introduces negligible accuracy loss.
 Second, at a fixed folding factor, throughput is essentially identical across all quantisation configurations — the inference rate is determined by the hardware parallelism, not the bit-width.
-Third, power increases with precision: at the small folding factor, power rises from \SI{0.5}{\watt} for \texttt{w1a1} to \SI{1.0}{\watt} for \texttt{w2a2}, reflecting the additional LUT and DSP resources consumed by wider arithmetic.
+Third, power and resource usage both increase with precision: LUT usage grows from 43.60\% (\texttt{w1a1}) to 66.90\% (\texttt{w2a2}), and power rises from \SI{0.5}{\watt} to \SI{1.0}{\watt}.
+Notably, no DSPs are used by any configuration — all compute is implemented via XNOR-popcount operations mapped to LUTs.
+Fourth, BRAM usage is particularly sensitive to activation bit-width: the 2-weight configurations (\texttt{w2a1}, \texttt{w2a2}) consume over 83\% of available BRAM tiles, driven by the larger weight buffers required for 2-bit weights.
 \section{Experiment 3: Investigating parallelism in FPGA QNN performance}\label{Experiment3}
 Basically see if parallelism with certain quantisation sizes has some impact.
 Use minimal, small, and the w1a1 large folding factors in hardware.
