@@ -1,4 +1,1 @@
-model = model.transform(absorb.AbsorbScalarMulAddIntoTopK())
-model = model.transform(InferDataLayouts())
-model = model.transform(RemoveUnusedTensors())
-model.save(build_dir + f"/end2end_{model_name}_streamlined.onnx")
+accel.throughput_test()

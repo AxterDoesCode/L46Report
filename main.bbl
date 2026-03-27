@@ -1,9 +1,19 @@
 \begin{thebibliography}{1}
 
+\bibitem{courbariauxBinarizedNeuralNetworks2016a}
+Matthieu Courbariaux, Itay Hubara, Daniel Soudry, Ran {El-Yaniv}, and Yoshua Bengio.
+\newblock Binarized {{Neural Networks}}: {{Training Deep Neural Networks}} with {{Weights}} and {{Activations Constrained}} to +1 or -1, March 2016.
+\newblock \href {https://arxiv.org/abs/1602.02830} {\path{arXiv:1602.02830}}, \href {https://doi.org/10.48550/arXiv.1602.02830} {\path{doi:10.48550/arXiv.1602.02830}}.
+
 \bibitem{umurogluFINNFrameworkFast2017}
 Yaman Umuroglu, Nicholas~J. Fraser, Giulio Gambardella, Michaela Blott, Philip Leong, Magnus Jahre, and Kees Vissers.
 \newblock {{FINN}}: {{A Framework}} for {{Fast}}, {{Scalable Binarized Neural Network Inference}}.
 \newblock In {\em Proceedings of the 2017 {{ACM}}/{{SIGDA International Symposium}} on {{Field-Programmable Gate Arrays}}}, pages 65--74, February 2017.
 \newblock \href {https://arxiv.org/abs/1612.07119} {\path{arXiv:1612.07119}}, \href {https://doi.org/10.1145/3020078.3021744} {\path{doi:10.1145/3020078.3021744}}.
+
+\bibitem{umurogluStreamlinedDeploymentQuantized2018}
+Yaman Umuroglu and Magnus Jahre.
+\newblock Streamlined {{Deployment}} for {{Quantized Neural Networks}}, May 2018.
+\newblock \href {https://arxiv.org/abs/1709.04060} {\path{arXiv:1709.04060}}, \href {https://doi.org/10.48550/arXiv.1709.04060} {\path{doi:10.48550/arXiv.1709.04060}}.
 
 \end{thebibliography}

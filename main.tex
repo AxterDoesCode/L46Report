@@ -1314,6 +1314,29 @@ For the above notebook, the idle power was measured at \SI{1.8}{\watt}, with the
 \end{figure}
 \section{Experiment 2: Impact of quantisation on neural network FPGA performance}
 Armed with a more intuitive understanding of the complete Brevitas to FPGA FINN flow, we evaluate the effects of quantisation for other weight/activation bit-levels.
+We train CNV variants with weight/activation precisions of 1 and 2 bits (\texttt{w1a1}, \texttt{w1a2}, \texttt{w2a1}, \texttt{w2a2}) and deploy each using the small folding factor on the Arty-Z7-20.
+Table~\ref{tab:exp2_results} summarises the accuracy, throughput, and power draw for each configuration.
+
+\begin{table}[H]
+\centering
+\caption{Accuracy, throughput, and power for CNV variants at the small folding factor.}
+\label{tab:exp2_results}
+\begin{tabular}{lrrr}
+\hline
+\textbf{Config} & \textbf{Accuracy (\%)} & \textbf{Throughput (img/s)} & \textbf{Power (W)} \\
+\hline
+W1A1 & 81.79 & 636.67 & 0.5 \\
+W1A2 & 85.95 & 636.62 & 0.7 \\
+W2A1 & 84.57 & 636.65 & 0.9 \\
+W2A2 & 87.07 & 636.61 & 1.0 \\
+\hline
+\end{tabular}
+\end{table}
+
+Several trends are evident.
+First, accuracy scales with bit-width: moving from 1-bit to 2-bit weights or activations consistently improves top-1 accuracy, with \texttt{w2a2} reaching 87.07\% and \texttt{w1a1} achieving 81.79\%.
+Second, at a fixed folding factor, throughput is essentially identical across all quantisation configurations — the inference rate is determined by the hardware parallelism, not the bit-width.
+Third, power increases with precision: at the small folding factor, power rises from \SI{0.5}{\watt} for \texttt{w1a1} to \SI{1.0}{\watt} for \texttt{w2a2}, reflecting the additional LUT and DSP resources consumed by wider arithmetic.
 \section{Experiment 3: Investigating parallelism in FPGA QNN performance}\label{Experiment3}
 Basically see if parallelism with certain quantisation sizes has some impact.
 Use minimal, small, and the w1a1 large folding factors in hardware.
