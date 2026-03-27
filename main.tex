@@ -43,23 +43,16 @@
 \vspace{2em}
 \centerline{\large Alex Chau (\emph{ac2822}), Churchill College}
 \section{Introduction}
-% AlexNote: TODO: Intro is so fucking AI please update
-The rapid advancement of machine learning has driven an increasing demand for efficient hardware acceleration of neural networks. 
-While general-purpose processors such as CPUs and GPUs have traditionally been used for this purpose, significant gains in performance and energy efficiency have emerged from the use of specialised hardware accelerators.
-In particular, field-programmable gate arrays (FPGAs) have gained attention due to their ability to provide flexible, fine-grained parallelism and custom dataflow architectures tailored to specific workloads.
+The rapid advancement of machine learning has driven increasing demand for efficient hardware acceleration of neural networks.
+While CPUs and GPUs have traditionally served this role, FPGAs have attracted attention for their ability to implement custom dataflow architectures with fine-grained parallelism tailored to specific workloads, often achieving better energy efficiency than general-purpose processors.
 
-A key technique enabling these improvements is quantisation, which reduces the numerical precision of neural network parameters and activations. 
-By representing values with fewer bits, ranging from reduced fixed-point precision to fully binarized representations, quantisation significantly lowers memory usage and computational complexity. 
-This allows for faster inference, reduced power consumption, and more efficient utilisation of hardware resources. 
-In extreme cases such as binarized neural networks (BNNs), arithmetic operations can be simplified to bitwise operations, making them especially well-suited for FPGA implementations.
+A key technique enabling efficient FPGA deployment is quantisation, which reduces the numerical precision of network weights and activations.
+By representing values with fewer bits - from reduced fixed-point precision down to fully binarized representations - quantisation lowers memory usage, reduces computational complexity, and enables faster, lower-power inference.
+In the extreme case of binarized neural networks (BNNs), multiply-accumulate operations can reduce to XNOR-popcount, which maps efficiently onto FPGA lookup tables without consuming DSP resources.
+The trade-off is a reduction in model accuracy that grows as bit-width decreases.
 
-Much of the recent progress in the AI hardware acceleration space can be attributed to the combination of increased hardware specialisation and aggressive quantisation strategies. 
-Specialised hardware architectures are able to exploit the reduced precision of quantised models to maximise parallelism and throughput, achieving performance levels that would be difficult to attain conventionally.
-
-This project explores the role of quantisation in FPGA-accelerated neural networks, with a particular focus on binarized neural networks.
-Using the FINN framework, quantized models are mapped to dataflow-style hardware architectures on an FPGA platform. 
-The study investigates how neural networks trained in Brevitas are mapped to FPGA-accelerated neural networks and how different levels of quantisation that impact performance, as well as how these effects interact with architectural parallelism. 
-Through these experiments, the project aims to provide insight into the trade-offs between accuracy, resource utilisation, and performance in quantised neural network deployment on reconfigurable hardware.
+This project investigates these tradeoffs using the FINN framework \cite{umurogluFINNFrameworkFast2017}, which automates the compilation of Brevitas-trained quantised networks into FPGA bitstreams via a dataflow hardware architecture.
+Three experiments are conducted on the Arty-Z7-20 (Zynq xc7z020): Experiment~1 examines the full transformation pipeline for a \texttt{w1a1} BNN; Experiment~2 varies quantisation precision at a fixed parallelism level to measure the effect on accuracy, throughput, power, and resource utilisation; and Experiment~3 varies the hardware parallelism (folding factor) across all quantisation configurations.
 \section{Experiment 1: Analysis of the PyTorch to FPGA transformation pipeline for Quantized Neural Networks}
 This experiment is an end-to-end implementation of a BNN as described by \cite{courbariauxBinarizedNeuralNetworks2016a}, we explore some of the black-box steps when converting a trained Brevitas/PyTorch network into an FPGA-usable bitstream.
 \subsection{System Setup}
@@ -1513,9 +1506,10 @@ W1A1 & Large   & 24348 & 45.77 & 31352 & 29.47 &  99.5 & 71.07 \\
 \end{table}
 
 At a fixed folding factor, throughput is nearly identical across all quantisation configurations, confirming that inference rate is governed by parallelism rather than bit-width.
+It is also worth noting that varying the folding factor has no effect on FPGA accuracy, as it controls only hardware parallelism and not the network's numerical computation.
 Increasing the folding factor from minimal to small yields a $13.6\times$ throughput improvement for all configs, and for \texttt{w1a1} a further $3.1\times$ gain at the large folding factor, reaching nearly 2000 images per second.
 LUT and FF usage grows with both folding factor and precision, as wider datapaths and larger weight representations both demand more combinational logic.
-BRAM usage is driven primarily by weight bit-width rather than folding: the 2-weight configurations consume over 85\% of BRAM tiles even at minimal folding, leaving insufficient headroom for a large folding factor.
+BRAM usage is driven primarily by weight bit-width rather than folding: the 2-weight configurations consume over 85\% of BRAM tiles even at minimal folding, leaving insufficient headroom for the large folding configuration.
 Power scales with folding factor across all configs, rising from \SI{0.3}{\watt} at minimal to \SI{1.0}{\watt} for \texttt{w2a2} at small folding.
 
 \section{Final Thoughts}
@@ -1523,8 +1517,8 @@ This project has demonstrated the end-to-end process of deploying quantised neur
 
 A natural extension of this work would be to evaluate higher-precision configurations such as 4-bit and 8-bit weights and activations, which typically close the accuracy gap to full-precision models more substantially.
 However, as the experiments here illustrate, BRAM is the primary bottleneck on the Arty-Z7-20: even at 2-bit weight precision the \texttt{w2a1} and \texttt{w2a2} configurations already consume over 85\% of the available 140 BRAM tiles at minimal folding.
-Scaling to 4-bit or 8-bit weights would require proportionally larger on-chip weight buffers, exhausting BRAM well before the LUT or FF resources become binding constraints.
-A board with a larger FPGA component, such as the Zynq UltraScale+ family, would be necessary to explore these higher bit-width regimes, and would likely reveal further trade-offs between accuracy recovery and resource cost that are not visible within the constraints of this platform.
+Scaling to 4-bit or 8-bit weights would require proportionally larger on-chip weight buffers, exhausting BRAM well before the LUT or FF resources become limiting constraints.
+A board with a larger FPGA component, such as the Zynq UltraScale+ family, would be necessary to explore these higher bit-width configurations, and would likely reveal further trade-offs between accuracy recovery and resource cost that are not visible within the constraints of this platform.
 
 \newpage
 \bibliography{library}{}
